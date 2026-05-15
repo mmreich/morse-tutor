@@ -14,7 +14,6 @@
       --red: #f87171;
       --yellow: #fbbf24;
       --blue: #60a5fa;
-      --purple: #a78bfa;
       --text: #e2e8f0;
       --muted: #64748b;
       --dim: #374151;
@@ -34,7 +33,7 @@
     /* ── Header ── */
     header { text-align: center; padding: 12px 0 18px; }
     header h1 { font-size: 1.6rem; color: var(--green); letter-spacing: 0.05em; }
-    header p { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+    header p  { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
 
     /* ── Cards ── */
     .card {
@@ -60,9 +59,35 @@
     input[type=range] { accent-color: var(--green); width: 90px; cursor: pointer; }
     .val { font-size: 0.82rem; color: var(--green); min-width: 56px; }
 
-    /* ── Lesson levels ── */
-    .level-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-    .level-btn {
+    /* ── Mode tabs ── */
+    .mode-tabs {
+      display: flex;
+      gap: 4px;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mode-tab {
+      padding: 6px 16px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.82rem;
+      transition: all 0.15s;
+    }
+    .mode-tab:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+    .mode-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Sub-selectors ── */
+    .sub-panel { display: none; }
+    .sub-panel.active { display: block; }
+
+    /* ── Shared button strip ── */
+    .cat-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cat-btn {
       padding: 5px 11px;
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -73,27 +98,29 @@
       font-size: 0.78rem;
       transition: all 0.15s;
     }
-    .level-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
-    .level-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .lesson-desc { font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
-    .lesson-chars { font-size: 0.72rem; color: var(--dim); margin-top: 3px; letter-spacing: 0.08em; }
+    .cat-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+    .cat-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .sub-desc  { font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
+    .sub-chars { font-size: 0.72rem; color: var(--dim);   margin-top: 3px; letter-spacing: 0.08em; }
 
-    /* ── Practice ── */
-    #char-display {
-      font-size: 5.5rem;
+    /* ── Main display (adapts to mode) ── */
+    #main-display {
       text-align: center;
-      color: var(--yellow);
-      line-height: 1;
-      padding: 14px 0 10px;
-      transition: color 0.1s;
+      line-height: 1.2;
+      padding: 14px 8px 10px;
       min-height: 96px;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: color 0.1s;
+      word-break: break-word;
     }
-    #char-display.playing { color: var(--blue); }
-    #char-display.correct { color: var(--green); }
-    #char-display.incorrect { color: var(--red); }
+    #main-display.mode-char { font-size: 5.5rem; color: var(--yellow); }
+    #main-display.mode-word { font-size: 2.2rem; color: var(--yellow); }
+    #main-display.mode-sent { font-size: 1.1rem;  color: var(--yellow); letter-spacing: 0.04em; }
+    #main-display.playing   { color: var(--blue);  }
+    #main-display.correct   { color: var(--green); }
+    #main-display.incorrect { color: var(--red);   }
 
     /* ── Morse pattern ── */
     #morse-pattern {
@@ -114,26 +141,26 @@
     }
     .el.dit { width: 10px; border-radius: 50%; }
     .el.dah { width: 30px; }
-    .el.lit {
-      background: var(--yellow);
-      box-shadow: 0 0 8px var(--yellow);
-    }
+    .el.lit  { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
     .el.done { background: var(--muted); }
 
     /* ── Feedback ── */
     #feedback {
       text-align: center;
       min-height: 22px;
-      font-size: 0.9rem;
-      letter-spacing: 0.05em;
+      font-size: 0.88rem;
+      letter-spacing: 0.04em;
       margin-bottom: 8px;
+      line-height: 1.5;
     }
-    #feedback.ok { color: var(--green); }
-    #feedback.err { color: var(--red); }
+    #feedback.ok  { color: var(--green); }
+    #feedback.err { color: var(--red);   }
+    .cmp-ok  { color: var(--green); }
+    .cmp-err { color: var(--red); text-decoration: underline; }
 
-    /* ── Answer input ── */
-    .answer-row { display: flex; gap: 8px; align-items: center; }
-    #answer-input {
+    /* ── Answer inputs ── */
+    #char-input-row { display: flex; gap: 8px; align-items: center; }
+    #char-input {
       flex: 1;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -148,9 +175,41 @@
       transition: border-color 0.15s, background 0.15s;
       caret-color: var(--green);
     }
-    #answer-input:focus { border-color: var(--accent); }
-    #answer-input.ok  { border-color: var(--green); background: rgba(74,222,128,0.06); }
-    #answer-input.err { border-color: var(--red);   background: rgba(248,113,113,0.06); }
+    #char-input:focus { border-color: var(--accent); }
+    #char-input.ok  { border-color: var(--green); background: rgba(74,222,128,0.06); }
+    #char-input.err { border-color: var(--red);   background: rgba(248,113,113,0.06); }
+
+    #multi-input-row { display: none; gap: 8px; align-items: center; }
+    #multi-input-row.active { display: flex; }
+    #multi-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+      caret-color: var(--green);
+    }
+    #multi-input:focus  { border-color: var(--accent); }
+    #multi-input.ok  { border-color: var(--green); background: rgba(74,222,128,0.06); }
+    #multi-input.err { border-color: var(--red);   background: rgba(248,113,113,0.06); }
+    #btn-submit {
+      padding: 10px 16px;
+      border-radius: 5px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* ── Buttons ── */
     .controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
@@ -165,7 +224,7 @@
     }
     .btn-primary { background: var(--green); color: #000; border-color: var(--green); font-weight: bold; }
     .btn-primary:hover { filter: brightness(1.12); }
-    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+    .btn-primary:disabled  { opacity: 0.45; cursor: not-allowed; filter: none; }
     .btn-secondary { background: transparent; color: var(--muted); }
     .btn-secondary:hover:not(:disabled) { border-color: var(--muted); color: var(--text); }
     .btn-secondary:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -175,9 +234,7 @@
     .stat { display: flex; flex-direction: column; gap: 2px; }
     .stat-val { font-size: 1.4rem; color: var(--green); }
     .stat-lbl { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-
-    /* ── Progress ── */
-    .prog-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 12px; }
+    .prog-bar  { height: 3px; background: var(--border); border-radius: 2px; margin-top: 12px; }
     .prog-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s; }
 
     /* ── Reference ── */
@@ -246,31 +303,68 @@
     </div>
   </div>
 
-  <!-- Lesson -->
+  <!-- Mode + sub-selector -->
   <div class="card">
-    <div class="card-title">Lesson — ordered by element count</div>
-    <div class="level-btns" id="level-btns"></div>
-    <div class="lesson-desc" id="lesson-desc"></div>
-    <div class="lesson-chars" id="lesson-chars"></div>
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="char">Character</button>
+      <button class="mode-tab"        data-mode="word">Word</button>
+      <button class="mode-tab"        data-mode="sent">Sentence</button>
+    </div>
+
+    <!-- Character sub-panel -->
+    <div class="sub-panel active" id="sub-char">
+      <div class="card-title">Lesson — ordered by element count</div>
+      <div class="cat-btns" id="level-btns"></div>
+      <div class="sub-desc"  id="lesson-desc"></div>
+      <div class="sub-chars" id="lesson-chars"></div>
+    </div>
+
+    <!-- Word sub-panel -->
+    <div class="sub-panel" id="sub-word">
+      <div class="card-title">Word category</div>
+      <div class="cat-btns" id="word-cat-btns"></div>
+      <div class="sub-desc" id="word-cat-desc"></div>
+    </div>
+
+    <!-- Sentence sub-panel -->
+    <div class="sub-panel" id="sub-sent">
+      <div class="card-title">Sentence category</div>
+      <div class="cat-btns" id="sent-cat-btns"></div>
+      <div class="sub-desc" id="sent-cat-desc"></div>
+    </div>
   </div>
 
   <!-- Practice -->
   <div class="card" id="practice-card">
-    <div id="char-display">?</div>
+    <div id="main-display" class="mode-char">?</div>
     <div id="morse-pattern"></div>
     <div id="feedback"></div>
-    <div class="answer-row">
-      <input id="answer-input" type="text" maxlength="2"
+
+    <!-- Character mode input (single key, auto-submit) -->
+    <div id="char-input-row">
+      <input id="char-input" type="text" maxlength="2"
              placeholder="type what you hear"
              autocomplete="off" autocorrect="off"
              autocapitalize="characters" spellcheck="false">
     </div>
+
+    <!-- Word / Sentence mode input (text + Enter to submit) -->
+    <div id="multi-input-row">
+      <input id="multi-input" type="text"
+             placeholder="type what you heard…"
+             autocomplete="off" autocorrect="off"
+             autocapitalize="characters" spellcheck="false">
+      <button id="btn-submit" disabled>Submit</button>
+    </div>
+
     <div class="controls">
-      <button class="btn btn-primary" id="btn-play">&#9654; Play</button>
+      <button class="btn btn-primary"   id="btn-play">&#9654; Play</button>
       <button class="btn btn-secondary" id="btn-replay">&#8635; Replay</button>
       <button class="btn btn-secondary" id="btn-skip">&#9197; Skip</button>
     </div>
-    <div class="hint">Type the character you hear &bull; Space = replay &bull; Enter = start/replay</div>
+    <div class="hint" id="hint-text">
+      Type the character you hear &bull; Space&nbsp;=&nbsp;replay &bull; Enter&nbsp;=&nbsp;start/replay
+    </div>
   </div>
 
   <!-- Stats -->
@@ -284,7 +378,8 @@
     </div>
     <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
     <div style="margin-top:10px">
-      <button class="btn btn-secondary" id="btn-reset" style="font-size:0.72rem;padding:5px 12px;">Reset Stats</button>
+      <button class="btn btn-secondary" id="btn-reset"
+              style="font-size:0.72rem;padding:5px 12px;">Reset Stats</button>
     </div>
   </div>
 
@@ -294,7 +389,7 @@
     <div id="ref-content">
       <div class="ref-grid" id="ref-grid"></div>
       <div style="font-size:0.65rem;color:var(--muted);margin-top:8px;">
-        Highlighted = in current lesson. Click any character to hear it.
+        Highlighted = in current character lesson. Click any entry to hear it.
       </div>
     </div>
   </div>
@@ -305,40 +400,145 @@
 // Morse data
 // ═══════════════════════════════════════════════════════════
 const MORSE = {
-  // 1 element
-  'E':'.', 'T':'-',
-  // 2 elements
-  'A':'.-', 'I':'..', 'M':'--', 'N':'-.',
-  // 3 elements
-  'D':'-..', 'G':'--.', 'K':'-.-', 'O':'---',
-  'R':'.-.', 'S':'...', 'U':'..-', 'W':'.--',
-  // 4 elements
-  'B':'-...', 'C':'-.-.', 'F':'..-.', 'H':'....',
-  'J':'.---', 'L':'.-..', 'P':'.--.', 'Q':'--.-',
-  'V':'...-', 'X':'-..-', 'Y':'-.--', 'Z':'--..',
-  // 5 elements – numbers
-  '0':'-----', '1':'.----', '2':'..---', '3':'...--',
-  '4':'....-', '5':'.....', '6':'-....', '7':'--...',
-  '8':'---..', '9':'----.',
-  // 5 elements – punctuation
-  '/':'-..-.', '(':'-.--.', '&':'.-...', '=':'-...-', '+':'.-.-.',
-  // 6 elements – punctuation
-  '.':'.-.-.-', ',':'--..--', '?':'..--..', '!':'-.-.--',
-  ')':'-.--.-', ':':'---...', ';':'-.-.-.', '-':'-....-', '@':'.--.-.'
+  'E':'.','T':'-',
+  'A':'.-','I':'..','M':'--','N':'-.',
+  'D':'-..','G':'--.','K':'-.-','O':'---','R':'.-.','S':'...','U':'..-','W':'.--',
+  'B':'-...','C':'-.-.','F':'..-.','H':'....','J':'.---','L':'.-..','P':'.--.','Q':'--.-',
+  'V':'...-','X':'-..-','Y':'-.--','Z':'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-',
+  '5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',
+  '/':'-..-.','(':'-.--.','&':'.-...','=':'-...-','+':'.-.-.',
+  '.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--',
+  ')':'-.--.-',':':'---...',';':'-.-.-.', '-':'-....-','@':'.--.-.'
 };
 
-// Lessons ordered by element count
+// ═══════════════════════════════════════════════════════════
+// Character lessons (ordered by element count)
+// ═══════════════════════════════════════════════════════════
 const LESSONS = [
-  { name:'Lv 1', desc:'1 element',                  chars:['E','T'] },
-  { name:'Lv 2', desc:'2 elements',                 chars:['A','I','M','N'] },
-  { name:'Lv 3', desc:'3 elements',                 chars:['D','G','K','O','R','S','U','W'] },
-  { name:'Lv 4', desc:'4 elements',                 chars:['B','C','F','H','J','L','P','Q','V','X','Y','Z'] },
-  { name:'Lv 5', desc:'5 elements – numbers',       chars:['0','1','2','3','4','5','6','7','8','9'] },
-  { name:'Lv 6', desc:'5 elements – punctuation',   chars:['/','(','&','=','+'] },
-  { name:'Lv 7', desc:'6 elements – punctuation',   chars:['.', ',','?','!',')',':', ';','-','@'] },
-  { name:'Mix A', desc:'Letters only',              chars:['E','T','A','I','M','N','D','G','K','O','R','S','U','W','B','C','F','H','J','L','P','Q','V','X','Y','Z'] },
-  { name:'Mix B', desc:'All characters',            chars:Object.keys(MORSE) },
+  { name:'Lv 1', desc:'1 element',               chars:['E','T'] },
+  { name:'Lv 2', desc:'2 elements',              chars:['A','I','M','N'] },
+  { name:'Lv 3', desc:'3 elements',              chars:['D','G','K','O','R','S','U','W'] },
+  { name:'Lv 4', desc:'4 elements',              chars:['B','C','F','H','J','L','P','Q','V','X','Y','Z'] },
+  { name:'Lv 5', desc:'5 elements – numbers',    chars:['0','1','2','3','4','5','6','7','8','9'] },
+  { name:'Lv 6', desc:'5 elements – punct.',     chars:['/','(','&','=','+'] },
+  { name:'Lv 7', desc:'6 elements – punct.',     chars:['.', ',','?','!',')',':', ';','-','@'] },
+  { name:'Mix A', desc:'Letters only',           chars:['E','T','A','I','M','N','D','G','K','O','R','S','U','W','B','C','F','H','J','L','P','Q','V','X','Y','Z'] },
+  { name:'Mix B', desc:'All characters',         chars:Object.keys(MORSE) },
 ];
+
+// ═══════════════════════════════════════════════════════════
+// Word sets
+// ═══════════════════════════════════════════════════════════
+const WORD_CATS = [
+  {
+    name: '3 letters',
+    desc: 'Common short words',
+    words: 'THE AND FOR ARE BUT NOT YOU ALL CAN HER WAS ONE OUR OUT DAY GET HAS HIM HIS HOW MAN NEW NOW OLD SEE TWO WAY WHO ITS LET PUT SAY SHE TOO USE ANY MAY DID HAD SAW SET SIT RAN RUN CUT MET HIT WIN TRY FLY OWN ACT AGO AGE AIR END FAR FEW GOT HIM HOT ICE ILL JOY KEY LAW LOW MAP MIX NET ODD OIL PAY PEN RED ROW SAD TAX TEN TOP YES YET'.split(' '),
+  },
+  {
+    name: '4–5 letters',
+    desc: 'Common medium words',
+    words: 'THAT WITH HAVE THIS FROM THEY BEEN SOME MORE WHEN COME WILL INTO JUST YEAR OVER ALSO BACK MOST GOOD KNOW LIKE THEN THAN VERY WHAT EVEN SAME TIME ONLY SUCH WELL BOTH MADE MUCH CALL FIND LONG MAKE MANY PART TAKE TURN WORK PLAY HELP KEEP MOVE NEED SHOW STAY TALK TELL WALK GIVE HAND LAST NEXT OPEN SEEM SURE UPON WENT WISH YOUR ALSO AREA BOTH CARE DARK EASY FACE FACT FALL FAST FIRE FREE FULL GAME GIVE GLAD GOAL GROW HARD HOLD HOME HOPE HOUR IDEA JOIN JUMP JUST KEEP KIND LAND LATE LEAD LIFE LIFT LIKE LINE LIVE LOOK LORD LOSE LOVE MAKE MIND MINE MISS MUST NEAR NEED NEWS NICE NONE NORM NOTE ONCE ONLY OPEN OVER PACE PAGE PAID PAIN PAIR PASS PAST PATH PLAN PLAY POOL POOR PURE PUSH RACE READ REAL RISE ROAD ROLE ROLL ROOF ROOM ROSE RULE RUSH SAFE SAME SAVE SELF SELL SEND SIDE SIGN SING SITE SLIP SLOW SNOW SOFT SOIL SOLE SOME SONG SORT SOUL STEP SUCH SWIM TAKE TALL TASK TEAM TEST THAN THAT THEN THEY THIS THUS TIED TIME TOLD TONE TOOK TOOL TOWN TREE TRIP TRUE TUNE UNIT UPON USED VARY VIEW VOID VOTE WAGE WAIT WALK WARN WASH WAVE WEAK WHEN WHOM WIDE WILD WILL WIND WISE WITH WORD WORE WORN WRIT'.split(' '),
+  },
+  {
+    name: '6+ letters',
+    desc: 'Longer common words',
+    words: 'PEOPLE THINGS BECAUSE THROUGH BETWEEN ANOTHER SHOULD REALLY BEFORE LITTLE ALWAYS AROUND DURING FAMILY THOUGH SYSTEM NUMBER SCHOOL CHANGE FOLLOW MOTHER FATHER WITHIN ABOVE ALMOST TOWARD TRAVEL SIMPLE MIDDLE ENERGY PLEASE SINGLE GROUND REASON SECOND STRONG COMMON DESIGN EFFORT EXPECT FIGURE FUTURE HAPPEN HEALTH HIGHER IMPACT INDEED ISLAND ITSELF LITTLE LIVING MAKING MATTER MODERN MOMENT MOVING NATURE NEEDED OBJECT OFFICE OTHERS PERSON POLICY PUBLIC RATHER REMAIN RESULT RETURN RIGHTS SERVED SHOULD SIMPLE SINGLE SOCIAL SOUGHT SPECIAL SPOKEN STATED STAYED STRONG SYSTEM TAKING THEORY THOUGH THOUGH TOWARD TRAVEL TURNED UNABLE UNDER UNITED VARIOUS WANTED WITHIN WONDER WORKER WORLDS WRITTEN YELLOW'.split(' '),
+  },
+  {
+    name: 'Ham radio',
+    desc: 'CW / amateur radio terms',
+    words: 'CQ DE QSL QSO QTH QRM QRN QRO QRP QSB RST TNX TU FB OM YL PSE UR ES HI NR BK AR SK KN CW SSB DX EME VHF UHF HF ARRL IARU DXC RIG ANT PWR SIG AGC ALC ANT ATT AVC AGN CLD CLG CNT CPY CUL CUM DLD DX FER FIG FNE FYI GE GM GN GP GSE GTG HNY HW IMO LID LSN MIT MNI MSG MTR MSG MX NCS NET NEW NIM NIL NL NM NNW NR NR NV NW OB OC OM OP OSS OT OW PED PEP PSK PTT PWR QNI QRV QRX QRZ QSK QSY QTC QTR QRU RIG RPT RST RTY RX SAY SED SEZ SIG SKD SKP SRI SRS SVC SWL TMW TNC TNX TOR TRX TU TVI TWT TWX TXS TXU TYI URE VFO VY WKD WL WUD WX XYL YR 73 88'.split(' '),
+  },
+  {
+    name: 'All',
+    desc: 'All words combined',
+    words: [],
+  },
+];
+// Build 'All' pool, deduplicated
+WORD_CATS[4].words = [...new Set(WORD_CATS.slice(0, 4).flatMap(c => c.words))];
+
+// ═══════════════════════════════════════════════════════════
+// Sentence sets
+// ═══════════════════════════════════════════════════════════
+const SENT_CATS = [
+  {
+    name: 'Short',
+    desc: '3–5 words',
+    sents: [
+      'NOW IS THE TIME',
+      'THE CAT SAT',
+      'WELL DONE AND GOOD',
+      'THE SKY IS BLUE',
+      'HELLO AND GOOD DAY',
+      'COME IN AND SIT',
+      'SEND IT RIGHT NOW',
+      'TIME FLIES SO FAST',
+      'THE ROAD GOES ON',
+      'KEEP CALM AND COPY',
+      'GOOD MORNING TO ALL',
+      'THE SIGNAL IS WEAK',
+    ],
+  },
+  {
+    name: 'Medium',
+    desc: '6–10 words',
+    sents: [
+      'THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG',
+      'NOW IS THE TIME FOR ALL GOOD MEN',
+      'THE FIVE BOXING WIZARDS JUMP QUICKLY OVER THE NET',
+      'HOW VEXINGLY QUICK DAFT ZEBRAS JUMP OVER THE WALL',
+      'SPHINX OF BLACK QUARTZ JUDGE MY VOW TODAY',
+      'TWO DRIVEN JOCKS HELP FAX MY BIG QUIZ SOON',
+      'PACK MY BOX WITH FIVE DOZEN LIQUOR JUGS PLEASE',
+      'JUST KEEP EXAMINING EVERY LOW BID QUOTED FOR ZINC',
+      'THE RAIN IN SPAIN FALLS MAINLY ON THE PLAIN',
+      'TO BE OR NOT TO BE THAT IS THE QUESTION',
+      'ALL THAT GLITTERS IS NOT GOLD IN THIS WORLD',
+      'EARLY TO BED AND EARLY TO RISE MAKES MAN',
+    ],
+  },
+  {
+    name: 'Long',
+    desc: '11+ words',
+    sents: [
+      'THE QUICK BROWN FOX JUMPED OVER THE VERY LAZY OLD DOG NEAR THE FENCE',
+      'WHEN IN THE COURSE OF HUMAN EVENTS IT BECOMES NECESSARY FOR ONE PEOPLE',
+      'WE THE PEOPLE OF THE UNITED STATES IN ORDER TO FORM A MORE PERFECT UNION',
+      'ASK NOT WHAT YOUR COUNTRY CAN DO FOR YOU ASK WHAT YOU CAN DO FOR YOUR COUNTRY',
+      'FOUR SCORE AND SEVEN YEARS AGO OUR FATHERS BROUGHT FORTH ON THIS CONTINENT',
+      'IT WAS THE BEST OF TIMES IT WAS THE WORST OF TIMES IT WAS AN AGE OF WISDOM',
+      'TO INFINITY AND BEYOND IS A GREAT GOAL BUT FIRST LEARN YOUR CODE WELL',
+      'THE ONLY WAY TO LEARN MORSE CODE IS TO PRACTICE IT EVERY SINGLE DAY',
+    ],
+  },
+  {
+    name: 'Ham radio',
+    desc: 'QSO and CW phrases',
+    sents: [
+      'CQ CQ CQ DE W1AW PSE K',
+      'CQ DX CQ DX DE VE3XYZ PSE K',
+      'UR RST IS 599 QTH IS NEW YORK NY',
+      'MY QTH IS CHICAGO IL ES MY NAME IS JOHN',
+      'TNX FER QSO ES HPE CUAGN 73 DE W1XYZ SK',
+      'DE K1ABC UR SIGS ARE FB RST 579 HW CPY',
+      'QSL FER UR QSO NR 127 ES TNX FB SIG',
+      'PSE QSL VIA BUREAU TNX ES 73 DE W6ABC SK',
+      'QRM BAD ON THIS FREQ PSE QSY UP 5 KHZ',
+      'GOOD DX ES TNX FER QSO 73 ES CUL DE K9XYZ',
+      'UR FIST IS FB OM ES QSB IS NIL HR TNX',
+      'WX HERE IS SUNNY ES WARM TEMP IS 72 ES WINDS CALM',
+    ],
+  },
+  {
+    name: 'All',
+    desc: 'All sentences combined',
+    sents: [],
+  },
+];
+SENT_CATS[4].sents = SENT_CATS.slice(0, 4).flatMap(c => c.sents);
 
 // ═══════════════════════════════════════════════════════════
 // State
@@ -347,8 +547,11 @@ const S = {
   charWPM: 20,
   textWPM: 10,
   freq: 600,
-  level: 0,
-  currentChar: null,
+  mode: 'char',       // 'char' | 'word' | 'sent'
+  level: 0,           // char lesson index
+  wordCat: 0,         // word category index
+  sentCat: 0,         // sentence category index
+  currentTarget: null,// string (single char, word, or sentence)
   isPlaying: false,
   waitingInput: false,
   correct: 0,
@@ -356,6 +559,7 @@ const S = {
   streak: 0,
   pendingTimeouts: [],
   audioCtx: null,
+  masterGain: null,
   suppressInput: false,
 };
 
@@ -365,34 +569,45 @@ const S = {
 function timings() {
   const charWPM = S.charWPM;
   const textWPM = Math.min(S.textWPM, charWPM);
-  const tc = 1200 / charWPM;            // ms per unit at char speed
-  const tw = 60000 / textWPM;           // ms per word at text speed
-  // PARIS: 31 content units, 19 space units (4×3 char-gaps + 1×7 word-gap)
+  const tc = 1200 / charWPM;
+  const tw = 60000 / textWPM;
   const Ts = Math.max(tc, (tw - 31 * tc) / 19);
-  return {
-    dit:      tc,
-    dah:      3 * tc,
-    elemGap:  tc,
-    charGap:  3 * Ts,
-    wordGap:  7 * Ts,
-  };
+  return { dit: tc, dah: 3*tc, elemGap: tc, charGap: 3*Ts, wordGap: 7*Ts };
 }
 
 // ═══════════════════════════════════════════════════════════
 // Audio
 // ═══════════════════════════════════════════════════════════
-function ctx() {
+function audioCtx() {
   if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (S.audioCtx.state === 'suspended') S.audioCtx.resume();
   return S.audioCtx;
 }
 
+function masterGain() {
+  const c = audioCtx();
+  if (!S.masterGain) {
+    S.masterGain = c.createGain();
+    S.masterGain.connect(c.destination);
+    S.masterGain.gain.setValueAtTime(1, c.currentTime);
+  }
+  return S.masterGain;
+}
+
+function silenceAndResume() {
+  const c = audioCtx();
+  const g = masterGain();
+  g.gain.cancelScheduledValues(c.currentTime);
+  g.gain.setValueAtTime(0, c.currentTime);
+  g.gain.setValueAtTime(1, c.currentTime + 0.025);
+}
+
 function tone(freq, t0, dur) {
-  const c = ctx();
+  const c = audioCtx();
   const osc = c.createOscillator();
   const g   = c.createGain();
   osc.connect(g);
-  g.connect(c.destination);
+  g.connect(masterGain());
   osc.type = 'sine';
   osc.frequency.value = freq;
   const r = Math.min(0.006, dur * 0.1);
@@ -412,101 +627,22 @@ function later(fn, ms) {
 }
 
 function cancelPending() {
+  silenceAndResume();
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
-}
-
-// ═══════════════════════════════════════════════════════════
-// Play morse code for a character
-// ═══════════════════════════════════════════════════════════
-function playCode(code, onDone) {
-  cancelPending();
-  S.isPlaying = true;
+  S.isPlaying = false;
   syncButtons();
-
-  const T   = timings();
-  const c   = ctx();
-  const els = code.split('');
-  const pEls = [...document.querySelectorAll('#morse-pattern .el')];
-
-  let at  = c.currentTime + 0.05;   // audio schedule time (sec)
-  let wt  = 50;                      // wall-clock delay (ms)
-
-  els.forEach((sym, i) => {
-    const dur = (sym === '.') ? T.dit : T.dah;
-    tone(S.freq, at, dur / 1000);
-    at += dur / 1000;
-
-    const idx = i;
-    const t0  = wt;
-    const t1  = wt + dur;
-
-    later(() => {
-      pEls.forEach(p => p.classList.remove('lit'));
-      if (pEls[idx]) pEls[idx].classList.add('lit');
-    }, t0);
-
-    later(() => {
-      if (pEls[idx]) {
-        pEls[idx].classList.remove('lit');
-        pEls[idx].classList.add('done');
-      }
-    }, t1);
-
-    wt += dur;
-    if (i < els.length - 1) {
-      at += T.elemGap / 1000;
-      wt += T.elemGap;
-    }
-  });
-
-  later(() => {
-    S.isPlaying = false;
-    syncButtons();
-    if (onDone) onDone();
-  }, wt + 80);
 }
 
 // ═══════════════════════════════════════════════════════════
-// Round management
+// Pattern display
 // ═══════════════════════════════════════════════════════════
-function pick() {
-  const chars = LESSONS[S.level].chars;
-  S.currentChar = chars[Math.floor(Math.random() * chars.length)];
-}
-
-function startRound() {
-  cancelPending();
-  pick();
-  S.waitingInput = false;
-
-  const inp = document.getElementById('answer-input');
-  S.suppressInput = true;
-  inp.value = '';
-  inp.className = '';
-  setTimeout(() => { S.suppressInput = false; }, 0);
-
-  document.getElementById('char-display').className = 'playing';
-  document.getElementById('char-display').textContent = '?';
-  document.getElementById('feedback').textContent = '';
-  document.getElementById('feedback').className = '';
-
-  buildPattern(MORSE[S.currentChar], false);
-
-  playCode(MORSE[S.currentChar], () => {
-    S.waitingInput = true;
-    document.getElementById('char-display').className = '';
-    inp.focus();
-  });
-}
-
-function buildPattern(code, reveal) {
+function buildPattern(code) {
   const ctr = document.getElementById('morse-pattern');
   ctr.innerHTML = '';
   code.split('').forEach(sym => {
     const s = document.createElement('span');
     s.className = 'el ' + (sym === '.' ? 'dit' : 'dah');
-    if (reveal) s.classList.add('done');
     ctr.appendChild(s);
   });
 }
@@ -518,49 +654,425 @@ function revealPattern() {
   });
 }
 
-function onAnswer(raw) {
+// ═══════════════════════════════════════════════════════════
+// Play a single character's code
+// ═══════════════════════════════════════════════════════════
+function playCode(code, onDone) {
+  cancelPending();
+  S.isPlaying = true;
+  syncButtons();
+
+  const T  = timings();
+  const c  = audioCtx();
+  let at   = c.currentTime + 0.06;
+  let wt   = 60;
+
+  code.split('').forEach((sym, i) => {
+    const dur = sym === '.' ? T.dit : T.dah;
+    tone(S.freq, at, dur / 1000);
+    at += dur / 1000;
+
+    const idx = i, t0 = wt, t1 = wt + dur;
+    later(() => {
+      document.querySelectorAll('#morse-pattern .el').forEach(p => p.classList.remove('lit'));
+      const el = document.querySelectorAll('#morse-pattern .el')[idx];
+      if (el) el.classList.add('lit');
+    }, t0);
+    later(() => {
+      const el = document.querySelectorAll('#morse-pattern .el')[idx];
+      if (el) { el.classList.remove('lit'); el.classList.add('done'); }
+    }, t1);
+
+    wt += dur;
+    if (i < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
+  });
+
+  later(() => {
+    S.isPlaying = false;
+    syncButtons();
+    if (onDone) onDone();
+  }, wt + 80);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Play a full string (word or sentence) with Farnsworth gaps
+// onCharStart(char, code, charIdxInWord, wordIdx, wordLen, wordCount)
+//   fires ~25ms before each character starts so buildPattern has time to run.
+// onDone fires when the last element has sounded.
+// ═══════════════════════════════════════════════════════════
+function playString(text, onCharStart, onDone) {
+  cancelPending();
+  S.isPlaying = true;
+  syncButtons();
+
+  const T      = timings();
+  const c      = audioCtx();
+  const words  = text.split(' ');
+  const nWords = words.length;
+
+  let at = c.currentTime + 0.06;
+  let wt = 60;
+
+  words.forEach((word, wi) => {
+    const nChars = word.length;
+
+    word.split('').forEach((ch, ci) => {
+      const code = MORSE[ch];
+      if (!code) return;
+
+      // Fire onCharStart slightly before the character's first element
+      const charWt = wt;
+      const cci = ci, cwi = wi, cCode = code, cCh = ch;
+      later(() => onCharStart(cCh, cCode, cci, cwi, nChars, nWords), Math.max(0, charWt - 25));
+
+      // Schedule each element
+      code.split('').forEach((sym, si) => {
+        const dur = sym === '.' ? T.dit : T.dah;
+        tone(S.freq, at, dur / 1000);
+        at += dur / 1000;
+
+        const idx = si, t0 = wt, t1 = wt + dur;
+        later(() => {
+          document.querySelectorAll('#morse-pattern .el').forEach(p => p.classList.remove('lit'));
+          const el = document.querySelectorAll('#morse-pattern .el')[idx];
+          if (el) el.classList.add('lit');
+        }, t0);
+        later(() => {
+          const el = document.querySelectorAll('#morse-pattern .el')[idx];
+          if (el) { el.classList.remove('lit'); el.classList.add('done'); }
+        }, t1);
+
+        wt += dur;
+        if (si < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
+      });
+
+      // Inter-character gap
+      if (ci < word.length - 1) { at += T.charGap / 1000; wt += T.charGap; }
+    });
+
+    // Inter-word gap
+    if (wi < words.length - 1) { at += T.wordGap / 1000; wt += T.wordGap; }
+  });
+
+  later(() => {
+    S.isPlaying = false;
+    syncButtons();
+    if (onDone) onDone();
+  }, wt + 80);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Helper
+// ═══════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ═══════════════════════════════════════════════════════════
+// Round management — Character mode
+// ═══════════════════════════════════════════════════════════
+function startCharRound() {
+  S.currentTarget = pick(LESSONS[S.level].chars);
+  const code = MORSE[S.currentTarget];
+
+  resetPracticeUI('char');
+  buildPattern(code);
+
+  playCode(code, () => {
+    S.waitingInput = true;
+    document.getElementById('char-input').focus();
+  });
+}
+
+function onCharAnswer(raw) {
   if (!S.waitingInput) return;
   const ans = raw.trim().toUpperCase();
   if (!ans) return;
 
   S.waitingInput = false;
   S.total++;
-
-  const good = ans === S.currentChar;
-  const disp = document.getElementById('char-display');
+  const good = ans === S.currentTarget;
+  const disp = document.getElementById('main-display');
   const fb   = document.getElementById('feedback');
-  const inp  = document.getElementById('answer-input');
+  const inp  = document.getElementById('char-input');
 
-  disp.textContent = S.currentChar;
+  disp.textContent = S.currentTarget;
   revealPattern();
 
   if (good) {
-    S.correct++;
-    S.streak++;
-    disp.className   = 'correct';
-    inp.className    = 'ok';
-    fb.textContent   = '✓ Correct!';
-    fb.className     = 'ok';
+    S.correct++; S.streak++;
+    disp.className = 'mode-char correct';
+    inp.className  = 'ok';
+    fb.className   = 'ok';
+    fb.textContent = '✓ Correct!';
   } else {
     S.streak = 0;
-    disp.className   = 'incorrect';
-    inp.className    = 'err';
-    fb.textContent   = `✗  Answer: ${S.currentChar}   (${MORSE[S.currentChar]})`;
-    fb.className     = 'err';
+    disp.className = 'mode-char incorrect';
+    inp.className  = 'err';
+    fb.className   = 'err';
+    fb.textContent = `✗  Answer: ${S.currentTarget}   (${MORSE[S.currentTarget]})`;
   }
 
   syncStats();
-  later(startRound, good ? 1200 : 2400);
+  later(startCharRound, good ? 1200 : 2400);
 }
 
 // ═══════════════════════════════════════════════════════════
-// UI sync
+// Round management — Word mode
 // ═══════════════════════════════════════════════════════════
+function startWordRound() {
+  S.currentTarget = pick(WORD_CATS[S.wordCat].words);
+
+  resetPracticeUI('word');
+
+  const disp = document.getElementById('main-display');
+  disp.textContent = '▶';
+  disp.className = 'mode-word playing';
+
+  playString(
+    S.currentTarget,
+    (ch, code, ci, wi, nChars, nWords) => {
+      buildPattern(code);
+      disp.textContent = `Letter ${ci + 1} / ${nChars}`;
+    },
+    () => {
+      S.waitingInput = true;
+      disp.textContent = '?';
+      disp.className = 'mode-word';
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('multi-input').focus();
+    }
+  );
+}
+
+function onWordAnswer() {
+  if (!S.waitingInput) return;
+  const raw = document.getElementById('multi-input').value.trim().toUpperCase();
+  if (!raw) return;
+
+  S.waitingInput = false;
+  S.total++;
+  const good = raw === S.currentTarget;
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const inp  = document.getElementById('multi-input');
+
+  revealPattern();
+  document.getElementById('btn-submit').disabled = true;
+
+  if (good) {
+    S.correct++; S.streak++;
+    disp.textContent = S.currentTarget;
+    disp.className   = 'mode-word correct';
+    inp.className    = 'ok';
+    fb.className     = 'ok';
+    fb.textContent   = '✓ Correct!';
+  } else {
+    S.streak = 0;
+    disp.textContent = S.currentTarget;
+    disp.className   = 'mode-word incorrect';
+    inp.className    = 'err';
+    fb.className     = 'err';
+    // char-by-char comparison
+    const exp = S.currentTarget;
+    const act = raw.padEnd(exp.length, ' ');
+    const cmp = [...exp].map((ch, i) =>
+      ch === act[i]
+        ? `<span class="cmp-ok">${esc(ch)}</span>`
+        : `<span class="cmp-err">${esc(ch)}</span>`
+    ).join('');
+    fb.innerHTML = `✗ &nbsp;<span style="color:var(--muted)">Expected:</span> ${cmp}` +
+                   (raw !== exp ? `&nbsp;&nbsp;<span style="color:var(--muted)">You:</span> ${esc(raw)}` : '');
+  }
+
+  syncStats();
+  later(startWordRound, good ? 1500 : 3000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Round management — Sentence mode
+// ═══════════════════════════════════════════════════════════
+function startSentRound() {
+  S.currentTarget = pick(SENT_CATS[S.sentCat].sents);
+
+  resetPracticeUI('sent');
+
+  const disp = document.getElementById('main-display');
+  disp.textContent = '▶';
+  disp.className = 'mode-sent playing';
+
+  const sentWords = S.currentTarget.split(' ');
+  const nWords = sentWords.length;
+
+  playString(
+    S.currentTarget,
+    (ch, code, ci, wi, nChars, _nWords) => {
+      buildPattern(code);
+      disp.textContent = `Word ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
+    },
+    () => {
+      S.waitingInput = true;
+      disp.textContent = '?';
+      disp.className = 'mode-sent';
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('multi-input').focus();
+    }
+  );
+}
+
+function onSentAnswer() {
+  if (!S.waitingInput) return;
+  const raw = document.getElementById('multi-input').value.trim().toUpperCase();
+  if (!raw) return;
+
+  S.waitingInput = false;
+  S.total++;
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const inp  = document.getElementById('multi-input');
+
+  revealPattern();
+  document.getElementById('btn-submit').disabled = true;
+
+  const expWords = S.currentTarget.split(' ');
+  const actWords = raw.split(/\s+/);
+  const correctCount = expWords.filter((w, i) => w === actWords[i]).length;
+  const good = correctCount === expWords.length;
+
+  if (good) {
+    S.correct++; S.streak++;
+    disp.textContent = S.currentTarget;
+    disp.className   = 'mode-sent correct';
+    inp.className    = 'ok';
+    fb.className     = 'ok';
+    fb.textContent   = '✓ Correct!';
+  } else {
+    S.streak = 0;
+    disp.textContent = S.currentTarget;
+    disp.className   = 'mode-sent incorrect';
+    inp.className    = 'err';
+    fb.className     = 'err';
+    // word-by-word comparison
+    const cmp = expWords.map((w, i) =>
+      w === actWords[i]
+        ? `<span class="cmp-ok">${esc(w)}</span>`
+        : `<span class="cmp-err">${esc(w)}</span>`
+    ).join(' ');
+    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} words)</span>`;
+  }
+
+  syncStats();
+  later(startSentRound, good ? 2000 : 4000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Shared round dispatch
+// ═══════════════════════════════════════════════════════════
+function startRound() {
+  cancelPending();
+  S.waitingInput = false;
+  if      (S.mode === 'char') startCharRound();
+  else if (S.mode === 'word') startWordRound();
+  else                        startSentRound();
+}
+
+function replayRound() {
+  if (S.isPlaying || !S.currentTarget) return;
+  cancelPending();
+  S.waitingInput = false;
+
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  fb.textContent = '';
+  fb.className   = '';
+
+  if (S.mode === 'char') {
+    disp.textContent = '?';
+    disp.className   = 'mode-char playing';
+    clearCharInput();
+    buildPattern(MORSE[S.currentTarget]);
+    playCode(MORSE[S.currentTarget], () => {
+      S.waitingInput = true;
+      disp.className = 'mode-char';
+      document.getElementById('char-input').focus();
+    });
+  } else {
+    const modeClass = S.mode === 'word' ? 'mode-word' : 'mode-sent';
+    disp.textContent = '▶';
+    disp.className   = modeClass + ' playing';
+    clearMultiInput();
+    document.getElementById('btn-submit').disabled = true;
+
+    const nWords = S.currentTarget.split(' ').length;
+    playString(
+      S.currentTarget,
+      (ch, code, ci, wi, nChars) => {
+        buildPattern(code);
+        disp.textContent = S.mode === 'word'
+          ? `Letter ${ci + 1} / ${nChars}`
+          : `Word ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
+      },
+      () => {
+        S.waitingInput = true;
+        disp.textContent = '?';
+        disp.className   = modeClass;
+        document.getElementById('btn-submit').disabled = false;
+        document.getElementById('multi-input').focus();
+      }
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI helpers
+// ═══════════════════════════════════════════════════════════
+function resetPracticeUI(mode) {
+  const disp = document.getElementById('main-display');
+  disp.textContent = '?';
+  disp.className   = `mode-${mode}`;
+
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className   = '';
+  document.getElementById('morse-pattern').innerHTML = '';
+
+  const isMulti = mode !== 'char';
+  document.getElementById('char-input-row').style.display  = isMulti ? 'none'  : 'flex';
+  document.getElementById('multi-input-row').classList.toggle('active', isMulti);
+  document.getElementById('hint-text').textContent = isMulti
+    ? 'Type what you heard · Enter or Submit to check'
+    : 'Type the character you hear · Space = replay · Enter = start/replay';
+
+  if (isMulti) {
+    clearMultiInput();
+    document.getElementById('btn-submit').disabled = true;
+  } else {
+    clearCharInput();
+  }
+}
+
+function clearCharInput() {
+  const inp = document.getElementById('char-input');
+  S.suppressInput = true;
+  inp.value = '';
+  inp.className = '';
+  setTimeout(() => { S.suppressInput = false; }, 0);
+}
+
+function clearMultiInput() {
+  const inp = document.getElementById('multi-input');
+  inp.value = '';
+  inp.className = '';
+}
+
 function syncButtons() {
-  const playing = S.isPlaying;
-  document.getElementById('btn-play').disabled   = playing;
-  document.getElementById('btn-replay').disabled = playing;
-  document.getElementById('btn-skip').disabled   = playing;
+  const p = S.isPlaying;
+  document.getElementById('btn-play').disabled   = p;
+  document.getElementById('btn-replay').disabled = p;
+  document.getElementById('btn-skip').disabled   = p;
 }
 
 function syncStats() {
@@ -573,47 +1085,80 @@ function syncStats() {
   document.getElementById('prog-fill').style.width = pct + '%';
 }
 
+// ═══════════════════════════════════════════════════════════
+// Build mode sub-selectors
+// ═══════════════════════════════════════════════════════════
 function buildLevelButtons() {
   const ctr = document.getElementById('level-btns');
-  ctr.innerHTML = '';
   LESSONS.forEach((L, i) => {
     const b = document.createElement('button');
-    b.className = 'level-btn' + (i === S.level ? ' active' : '');
+    b.className = 'cat-btn' + (i === S.level ? ' active' : '');
     b.textContent = L.name;
     b.title = L.desc;
     b.addEventListener('click', () => {
       S.level = i;
-      document.querySelectorAll('.level-btn').forEach((x, j) =>
-        x.classList.toggle('active', j === i));
-      updateLessonInfo();
+      ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      document.getElementById('lesson-desc').textContent  = L.desc;
+      document.getElementById('lesson-chars').textContent = L.chars.join('  ');
       buildRefGrid();
       startRound();
     });
     ctr.appendChild(b);
   });
-}
-
-function updateLessonInfo() {
   const L = LESSONS[S.level];
   document.getElementById('lesson-desc').textContent  = L.desc;
   document.getElementById('lesson-chars').textContent = L.chars.join('  ');
 }
 
+function buildWordCatButtons() {
+  const ctr = document.getElementById('word-cat-btns');
+  WORD_CATS.forEach((cat, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.wordCat ? ' active' : '');
+    b.textContent = cat.name;
+    b.addEventListener('click', () => {
+      S.wordCat = i;
+      ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      document.getElementById('word-cat-desc').textContent = cat.desc + ` (${cat.words.length} words)`;
+      if (S.mode === 'word') startRound();
+    });
+    ctr.appendChild(b);
+  });
+  const cat = WORD_CATS[S.wordCat];
+  document.getElementById('word-cat-desc').textContent = cat.desc + ` (${cat.words.length} words)`;
+}
+
+function buildSentCatButtons() {
+  const ctr = document.getElementById('sent-cat-btns');
+  SENT_CATS.forEach((cat, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.sentCat ? ' active' : '');
+    b.textContent = cat.name;
+    b.addEventListener('click', () => {
+      S.sentCat = i;
+      ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+      if (S.mode === 'sent') startRound();
+    });
+    ctr.appendChild(b);
+  });
+  const cat = SENT_CATS[S.sentCat];
+  document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+}
+
 function buildRefGrid() {
-  const grid    = document.getElementById('ref-grid');
+  const grid     = document.getElementById('ref-grid');
   const inLesson = new Set(LESSONS[S.level].chars);
   grid.innerHTML = '';
   Object.entries(MORSE).forEach(([ch, code]) => {
     const d = document.createElement('div');
     d.className = 'ref-item' + (inLesson.has(ch) ? ' in-lesson' : '');
-    d.innerHTML = `<span class="ref-char">${ch === '<' ? '&lt;' : ch}</span><span class="ref-code">${code}</span>`;
+    d.innerHTML = `<span class="ref-char">${esc(ch)}</span><span class="ref-code">${code}</span>`;
     d.title = `Click to hear ${ch}`;
     d.addEventListener('click', () => {
       if (S.isPlaying) return;
-      buildPattern(code, false);
-      playCode(code, () => {
-        buildPattern(code, true);
-      });
+      buildPattern(code);
+      playCode(code, () => revealPattern());
     });
     grid.appendChild(d);
   });
@@ -627,7 +1172,6 @@ function initEvents() {
   const slChar = document.getElementById('sl-char');
   const slText = document.getElementById('sl-text');
   const slFreq = document.getElementById('sl-freq');
-
   slChar.addEventListener('input', () => {
     S.charWPM = +slChar.value;
     document.getElementById('v-char').textContent = S.charWPM;
@@ -647,69 +1191,70 @@ function initEvents() {
     document.getElementById('v-freq').textContent = S.freq;
   });
 
-  // Play / Replay / Skip
-  document.getElementById('btn-play').addEventListener('click', () => {
-    if (!S.isPlaying) startRound();
-  });
-  document.getElementById('btn-replay').addEventListener('click', () => {
-    if (S.isPlaying || !S.currentChar) return;
-    cancelPending();
-    S.waitingInput = false;
-    document.getElementById('char-display').className = 'playing';
-    document.getElementById('char-display').textContent = '?';
-    document.getElementById('feedback').textContent = '';
-    const inp = document.getElementById('answer-input');
-    S.suppressInput = true;
-    inp.value = '';
-    inp.className = '';
-    setTimeout(() => { S.suppressInput = false; }, 0);
-    buildPattern(MORSE[S.currentChar], false);
-    playCode(MORSE[S.currentChar], () => {
-      S.waitingInput = true;
-      document.getElementById('char-display').className = '';
-      inp.focus();
+  // Mode tabs
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const m = tab.dataset.mode;
+      S.mode = m;
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`sub-${m}`).classList.add('active');
+      startRound();
     });
   });
-  document.getElementById('btn-skip').addEventListener('click', () => {
-    if (!S.isPlaying) startRound();
-  });
-  document.getElementById('btn-reset').addEventListener('click', () => {
+
+  // Play / Replay / Skip
+  document.getElementById('btn-play').addEventListener('click',   () => { if (!S.isPlaying) startRound(); });
+  document.getElementById('btn-replay').addEventListener('click', replayRound);
+  document.getElementById('btn-skip').addEventListener('click',   () => { if (!S.isPlaying) startRound(); });
+  document.getElementById('btn-reset').addEventListener('click',  () => {
     S.correct = S.total = S.streak = 0;
     syncStats();
   });
 
-  // Answer input
-  const inp = document.getElementById('answer-input');
-  inp.addEventListener('input', e => {
+  // Submit button (word/sent modes)
+  document.getElementById('btn-submit').addEventListener('click', () => {
+    if (S.mode === 'word') onWordAnswer();
+    else                   onSentAnswer();
+  });
+
+  // Character input (single-key auto-submit)
+  const charInp = document.getElementById('char-input');
+  charInp.addEventListener('input', e => {
     if (S.suppressInput) return;
     const v = e.target.value;
     if (v.length > 0) {
-      onAnswer(v);
+      onCharAnswer(v);
       S.suppressInput = true;
       e.target.value = '';
       setTimeout(() => { S.suppressInput = false; }, 0);
     }
   });
 
-  // Keyboard shortcuts
+  // Multi input — Enter to submit
+  const multiInp = document.getElementById('multi-input');
+  multiInp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (S.waitingInput) {
+        if (S.mode === 'word') onWordAnswer();
+        else                   onSentAnswer();
+      }
+    }
+  });
+
+  // Global keyboard shortcuts
   document.addEventListener('keydown', e => {
-    if (e.target === inp) {
+    if (e.target === charInp) {
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (!S.waitingInput && !S.isPlaying) {
-          document.getElementById('btn-replay').click();
-        }
+        if (!S.waitingInput && !S.isPlaying) replayRound();
       }
       return;
     }
-    if (e.key === ' ') {
-      e.preventDefault();
-      if (!S.isPlaying) document.getElementById('btn-replay').click();
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!S.isPlaying) document.getElementById('btn-play').click();
-    }
+    if (e.target === multiInp) return;
+    if (e.key === ' ')     { e.preventDefault(); if (!S.isPlaying) replayRound(); }
+    if (e.key === 'Enter') { e.preventDefault(); if (!S.isPlaying) startRound(); }
   });
 
   // Reference toggle
@@ -717,8 +1262,7 @@ function initEvents() {
     const c = document.getElementById('ref-content');
     c.classList.toggle('open');
     document.getElementById('ref-toggle').textContent =
-      (c.classList.contains('open') ? '▼' : '►') +
-      ' Morse Code Reference (click to expand)';
+      (c.classList.contains('open') ? '▼' : '►') + ' Morse Code Reference (click to expand)';
   });
 }
 
@@ -727,7 +1271,8 @@ function initEvents() {
 // ═══════════════════════════════════════════════════════════
 function init() {
   buildLevelButtons();
-  updateLessonInfo();
+  buildWordCatButtons();
+  buildSentCatButtons();
   buildRefGrid();
   initEvents();
   syncStats();
