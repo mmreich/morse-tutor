@@ -561,6 +561,7 @@ const S = {
   audioCtx: null,
   masterGain: null,
   suppressInput: false,
+  pendingAnswer: null,
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -776,15 +777,21 @@ function pick(arr) {
 // Round management — Character mode
 // ═══════════════════════════════════════════════════════════
 function startCharRound() {
+  S.pendingAnswer = null;
   S.currentTarget = pick(LESSONS[S.level].chars);
   const code = MORSE[S.currentTarget];
 
   resetPracticeUI('char');
   buildPattern(code);
+  document.getElementById('char-input').focus();
 
   playCode(code, () => {
     S.waitingInput = true;
-    document.getElementById('char-input').focus();
+    if (S.pendingAnswer !== null) {
+      const ans = S.pendingAnswer;
+      S.pendingAnswer = null;
+      onCharAnswer(ans);
+    }
   });
 }
 
@@ -832,6 +839,7 @@ function startWordRound() {
   const disp = document.getElementById('main-display');
   disp.textContent = '▶';
   disp.className = 'mode-word playing';
+  document.getElementById('multi-input').focus();
 
   playString(
     S.currentTarget,
@@ -844,7 +852,6 @@ function startWordRound() {
       disp.textContent = '?';
       disp.className = 'mode-word';
       document.getElementById('btn-submit').disabled = false;
-      document.getElementById('multi-input').focus();
     }
   );
 }
@@ -904,6 +911,7 @@ function startSentRound() {
   const disp = document.getElementById('main-display');
   disp.textContent = '▶';
   disp.className = 'mode-sent playing';
+  document.getElementById('multi-input').focus();
 
   const sentWords = S.currentTarget.split(' ');
   const nWords = sentWords.length;
@@ -919,7 +927,6 @@ function startSentRound() {
       disp.textContent = '?';
       disp.className = 'mode-sent';
       document.getElementById('btn-submit').disabled = false;
-      document.getElementById('multi-input').focus();
     }
   );
 }
@@ -991,14 +998,20 @@ function replayRound() {
   fb.className   = '';
 
   if (S.mode === 'char') {
+    S.pendingAnswer = null;
     disp.textContent = '?';
     disp.className   = 'mode-char playing';
     clearCharInput();
     buildPattern(MORSE[S.currentTarget]);
+    document.getElementById('char-input').focus();
     playCode(MORSE[S.currentTarget], () => {
       S.waitingInput = true;
       disp.className = 'mode-char';
-      document.getElementById('char-input').focus();
+      if (S.pendingAnswer !== null) {
+        const ans = S.pendingAnswer;
+        S.pendingAnswer = null;
+        onCharAnswer(ans);
+      }
     });
   } else {
     const modeClass = S.mode === 'word' ? 'mode-word' : 'mode-sent';
@@ -1006,6 +1019,7 @@ function replayRound() {
     disp.className   = modeClass + ' playing';
     clearMultiInput();
     document.getElementById('btn-submit').disabled = true;
+    document.getElementById('multi-input').focus();
 
     const nWords = S.currentTarget.split(' ').length;
     playString(
@@ -1021,7 +1035,6 @@ function replayRound() {
         disp.textContent = '?';
         disp.className   = modeClass;
         document.getElementById('btn-submit').disabled = false;
-        document.getElementById('multi-input').focus();
       }
     );
   }
@@ -1224,10 +1237,15 @@ function initEvents() {
     if (S.suppressInput) return;
     const v = e.target.value;
     if (v.length > 0) {
-      onCharAnswer(v);
       S.suppressInput = true;
       e.target.value = '';
       setTimeout(() => { S.suppressInput = false; }, 0);
+      if (S.waitingInput) {
+        onCharAnswer(v);
+      } else if (S.isPlaying && S.mode === 'char' && S.pendingAnswer === null) {
+        // Buffer the first keystroke typed during playback; flush when done
+        S.pendingAnswer = v.trim().toUpperCase()[0] || null;
+      }
     }
   });
 
