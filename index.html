@@ -562,6 +562,7 @@ const S = {
   masterGain: null,
   suppressInput: false,
   pendingAnswer: null,
+  stats: {},            // key → { correct, total }
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -769,8 +770,32 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// ── Weighted selection ──────────────────────────────────────
+// Weight formula: (errors+1)/(total+1)
+//   unseen item  → 1.0  (normal chance)
+//   all correct  → approaches 0 as total grows
+//   all wrong    → 1.0  (maximum chance)
+function recordResult(key, correct) {
+  if (!S.stats[key]) S.stats[key] = { correct: 0, total: 0 };
+  S.stats[key].total++;
+  if (correct) S.stats[key].correct++;
+}
+
+function itemWeight(key) {
+  const st = S.stats[key];
+  if (!st || st.total === 0) return 1;
+  return (st.total - st.correct + 1) / (st.total + 1);
+}
+
+function weightedPick(items) {
+  const weights = items.map(k => itemWeight(k));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -778,7 +803,7 @@ function pick(arr) {
 // ═══════════════════════════════════════════════════════════
 function startCharRound() {
   S.pendingAnswer = null;
-  S.currentTarget = pick(LESSONS[S.level].chars);
+  S.currentTarget = weightedPick(LESSONS[S.level].chars);
   const code = MORSE[S.currentTarget];
 
   resetPracticeUI('char');
@@ -824,7 +849,9 @@ function onCharAnswer(raw) {
     fb.textContent = `✗  Answer: ${S.currentTarget}   (${MORSE[S.currentTarget]})`;
   }
 
+  recordResult(S.currentTarget, good);
   syncStats();
+  updateLessonInfo();
   later(startCharRound, good ? 1200 : 2400);
 }
 
@@ -832,7 +859,7 @@ function onCharAnswer(raw) {
 // Round management — Word mode
 // ═══════════════════════════════════════════════════════════
 function startWordRound() {
-  S.currentTarget = pick(WORD_CATS[S.wordCat].words);
+  S.currentTarget = weightedPick(WORD_CATS[S.wordCat].words);
 
   resetPracticeUI('word');
 
@@ -896,6 +923,7 @@ function onWordAnswer() {
                    (raw !== exp ? `&nbsp;&nbsp;<span style="color:var(--muted)">You:</span> ${esc(raw)}` : '');
   }
 
+  recordResult(S.currentTarget, good);
   syncStats();
   later(startWordRound, good ? 1500 : 3000);
 }
@@ -904,7 +932,7 @@ function onWordAnswer() {
 // Round management — Sentence mode
 // ═══════════════════════════════════════════════════════════
 function startSentRound() {
-  S.currentTarget = pick(SENT_CATS[S.sentCat].sents);
+  S.currentTarget = weightedPick(SENT_CATS[S.sentCat].sents);
 
   resetPracticeUI('sent');
 
@@ -972,6 +1000,7 @@ function onSentAnswer() {
     fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} words)</span>`;
   }
 
+  recordResult(S.currentTarget, good);
   syncStats();
   later(startSentRound, good ? 2000 : 4000);
 }
@@ -1101,6 +1130,22 @@ function syncStats() {
 // ═══════════════════════════════════════════════════════════
 // Build mode sub-selectors
 // ═══════════════════════════════════════════════════════════
+function updateLessonInfo() {
+  const L = LESSONS[S.level];
+  document.getElementById('lesson-desc').textContent = L.desc;
+  // Color each character by accuracy: grey=unseen, green≥80%, yellow≥50%, red<50%
+  document.getElementById('lesson-chars').innerHTML = L.chars.map(ch => {
+    const st = S.stats[ch];
+    let color = 'var(--dim)', title = 'unseen';
+    if (st && st.total > 0) {
+      const acc = st.correct / st.total;
+      color = acc >= 0.8 ? 'var(--green)' : acc >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+      title = `${Math.round(acc * 100)}%  (${st.correct}/${st.total})`;
+    }
+    return `<span style="color:${color}" title="${title}">${esc(ch)}</span>`;
+  }).join('  ');
+}
+
 function buildLevelButtons() {
   const ctr = document.getElementById('level-btns');
   LESSONS.forEach((L, i) => {
@@ -1111,16 +1156,13 @@ function buildLevelButtons() {
     b.addEventListener('click', () => {
       S.level = i;
       ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
-      document.getElementById('lesson-desc').textContent  = L.desc;
-      document.getElementById('lesson-chars').textContent = L.chars.join('  ');
+      updateLessonInfo();
       buildRefGrid();
       startRound();
     });
     ctr.appendChild(b);
   });
-  const L = LESSONS[S.level];
-  document.getElementById('lesson-desc').textContent  = L.desc;
-  document.getElementById('lesson-chars').textContent = L.chars.join('  ');
+  updateLessonInfo();
 }
 
 function buildWordCatButtons() {
@@ -1222,7 +1264,9 @@ function initEvents() {
   document.getElementById('btn-skip').addEventListener('click',   () => { if (!S.isPlaying) startRound(); });
   document.getElementById('btn-reset').addEventListener('click',  () => {
     S.correct = S.total = S.streak = 0;
+    S.stats = {};
     syncStats();
+    updateLessonInfo();
   });
 
   // Submit button (word/sent modes)
