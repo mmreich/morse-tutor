@@ -115,9 +115,36 @@
       transition: color 0.1s;
       word-break: break-word;
     }
-    #main-display.mode-char { font-size: 5.5rem; color: var(--yellow); }
-    #main-display.mode-word { font-size: 2.2rem; color: var(--yellow); }
-    #main-display.mode-sent { font-size: 1.1rem;  color: var(--yellow); letter-spacing: 0.04em; }
+    #main-display.mode-char    { font-size: 5.5rem; color: var(--yellow); }
+    #main-display.mode-word    { font-size: 2.2rem; color: var(--yellow); }
+    #main-display.mode-sent    { font-size: 1.1rem;  color: var(--yellow); letter-spacing: 0.04em; }
+    #main-display.mode-prosign { font-size: 3.2rem; color: var(--yellow); letter-spacing: 0.04em; }
+
+    /* ── Custom mode symbol picker ── */
+    #custom-symbol-grid { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; }
+    .custom-sym-section {
+      flex-basis: 100%;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .custom-sym {
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.78rem;
+      transition: all 0.12s;
+      min-width: 34px;
+      text-align: center;
+    }
+    .custom-sym:hover:not(.selected) { border-color: var(--muted); color: var(--text); }
+    .custom-sym.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
     #main-display.playing   { color: var(--blue);  }
     #main-display.correct   { color: var(--green); }
     #main-display.incorrect { color: var(--red);   }
@@ -288,6 +315,8 @@
       <button class="mode-tab active" data-mode="char">Character</button>
       <button class="mode-tab"        data-mode="word">Word</button>
       <button class="mode-tab"        data-mode="sent">Sentence</button>
+      <button class="mode-tab"        data-mode="prosign">Prosign</button>
+      <button class="mode-tab"        data-mode="custom">Custom</button>
     </div>
 
     <!-- Character sub-panel -->
@@ -310,6 +339,22 @@
       <div class="card-title">Sentence category</div>
       <div class="cat-btns" id="sent-cat-btns"></div>
       <div class="sub-desc" id="sent-cat-desc"></div>
+    </div>
+
+    <!-- Custom sub-panel -->
+    <div class="sub-panel" id="sub-custom">
+      <div class="card-title">Custom symbol set — click to toggle</div>
+      <div class="cat-btns" id="custom-quick-btns"></div>
+      <div class="sub-desc" id="custom-desc"></div>
+      <div id="custom-symbol-grid"></div>
+    </div>
+
+    <!-- Prosign sub-panel -->
+    <div class="sub-panel" id="sub-prosign">
+      <div class="card-title">Prosign set — sent without inter-character gaps</div>
+      <div class="cat-btns" id="prosign-cat-btns"></div>
+      <div class="sub-desc"  id="prosign-cat-desc"></div>
+      <div class="sub-chars" id="prosign-list"></div>
     </div>
   </div>
 
@@ -520,6 +565,27 @@ const SENT_CATS = [
 SENT_CATS[4].sents = SENT_CATS.slice(0, 4).flatMap(c => c.sents);
 
 // ═══════════════════════════════════════════════════════════
+// Prosign data
+// Each prosign is transmitted as merged characters (no inter-character gap).
+// ═══════════════════════════════════════════════════════════
+const PROSIGNS = [
+  { name: 'AR', code: '.-.-.', desc: 'End of message' },
+  { name: 'SK', code: '...-.-', desc: 'End of contact' },
+  { name: 'BT', code: '-...-',  desc: 'Break / separator' },
+  { name: 'KN', code: '-.--.', desc: 'Go ahead (specific station)' },
+  { name: 'AS', code: '.-...', desc: 'Wait / stand by' },
+  { name: 'SN', code: '...-.',  desc: 'Understood' },
+  { name: 'CT', code: '-.-.-', desc: 'Start of message' },
+  { name: 'CL', code: '-.-..-..', desc: 'Closing station' },
+  { name: 'HH', code: '........', desc: 'Error in keying' },
+];
+
+const PROSIGN_CATS = [
+  { name: 'Basic', desc: '5 most common prosigns', names: ['AR','SK','BT','KN','AS'] },
+  { name: 'All',   desc: 'All 9 prosigns',         names: PROSIGNS.map(p => p.name) },
+];
+
+// ═══════════════════════════════════════════════════════════
 // State
 // ═══════════════════════════════════════════════════════════
 const S = {
@@ -530,6 +596,8 @@ const S = {
   level: 0,           // char lesson index
   wordCat: 0,         // word category index
   sentCat: 0,         // sentence category index
+  prosignCat: 0,      // prosign category index
+  customSet: new Set(), // keys of symbols selected for custom drill
   currentTarget: null,// string (single char, word, or sentence)
   isPlaying: false,
   isPaused: false,
@@ -618,7 +686,7 @@ function cancelPending() {
 }
 
 function pauseRound() {
-  if (!S.isPlaying || S.mode === 'char') return;
+  if (!S.isPlaying || S.mode === 'char' || S.mode === 'prosign' || S.mode === 'custom') return;
   if (S.audioCtx) S.audioCtx.suspend();
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
@@ -957,14 +1025,150 @@ function onSentAnswer() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Round management — Custom mode
+// ═══════════════════════════════════════════════════════════
+function customTargetCode(target) {
+  const p = PROSIGNS.find(pr => pr.name === target);
+  return p ? p.code : MORSE[target];
+}
+
+function customModeClass(target) {
+  return PROSIGNS.some(pr => pr.name === target) ? 'mode-prosign' : 'mode-char';
+}
+
+function startCustomRound() {
+  if (S.customSet.size === 0) {
+    const disp = document.getElementById('main-display');
+    disp.textContent = 'Select symbols above';
+    disp.className = 'mode-char';
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('feedback').className = '';
+    return;
+  }
+
+  S.pendingAnswer = null;
+  S.currentTarget = weightedPick([...S.customSet]);
+
+  resetPracticeUI('custom');
+  const disp = document.getElementById('main-display');
+  disp.className = customModeClass(S.currentTarget);
+  document.getElementById('char-input').focus();
+
+  playCode(customTargetCode(S.currentTarget), () => {
+    S.waitingInput = true;
+    if (S.pendingAnswer !== null) {
+      const ans = S.pendingAnswer;
+      S.pendingAnswer = null;
+      onCustomAnswer(ans);
+    }
+  });
+}
+
+function onCustomAnswer(raw) {
+  if (!S.waitingInput) return;
+  const ans = raw.trim().toUpperCase();
+  if (!ans) return;
+
+  S.waitingInput = false;
+  S.total++;
+  const prosign = PROSIGNS.find(pr => pr.name === S.currentTarget);
+  const good = ans === S.currentTarget;
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const inp  = document.getElementById('char-input');
+
+  disp.textContent = prosign ? `<${S.currentTarget}>` : S.currentTarget;
+
+  if (good) {
+    S.correct++; S.streak++;
+    disp.className = customModeClass(S.currentTarget) + ' correct';
+    inp.className  = 'ok';
+    fb.className   = 'ok';
+    fb.textContent = prosign ? `✓ Correct! — ${prosign.desc}` : '✓ Correct!';
+  } else {
+    S.streak = 0;
+    disp.className = customModeClass(S.currentTarget) + ' incorrect';
+    inp.className  = 'err';
+    fb.className   = 'err';
+    if (prosign) {
+      fb.textContent = `✗  Answer: <${S.currentTarget}> — ${prosign.desc}   (${prosign.code})`;
+    } else {
+      fb.textContent = `✗  Answer: ${S.currentTarget}   (${MORSE[S.currentTarget]})`;
+    }
+  }
+
+  recordResult(S.currentTarget, good);
+  syncStats();
+  later(startCustomRound, good ? 1200 : 2400);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Round management — Prosign mode
+// ═══════════════════════════════════════════════════════════
+function startProsignRound() {
+  S.pendingAnswer = null;
+  const names = PROSIGN_CATS[S.prosignCat].names;
+  S.currentTarget = weightedPick(names);
+  const prosign = PROSIGNS.find(p => p.name === S.currentTarget);
+
+  resetPracticeUI('prosign');
+  document.getElementById('char-input').focus();
+
+  playCode(prosign.code, () => {
+    S.waitingInput = true;
+    if (S.pendingAnswer !== null) {
+      const ans = S.pendingAnswer;
+      S.pendingAnswer = null;
+      onProsignAnswer(ans);
+    }
+  });
+}
+
+function onProsignAnswer(raw) {
+  if (!S.waitingInput) return;
+  const ans = raw.trim().toUpperCase();
+  if (!ans) return;
+
+  S.waitingInput = false;
+  S.total++;
+  const prosign = PROSIGNS.find(p => p.name === S.currentTarget);
+  const good = ans === S.currentTarget;
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const inp  = document.getElementById('char-input');
+
+  disp.textContent = `<${S.currentTarget}>`;
+
+  if (good) {
+    S.correct++; S.streak++;
+    disp.className = 'mode-prosign correct';
+    inp.className  = 'ok';
+    fb.className   = 'ok';
+    fb.textContent = `✓ Correct! — ${prosign.desc}`;
+  } else {
+    S.streak = 0;
+    disp.className = 'mode-prosign incorrect';
+    inp.className  = 'err';
+    fb.className   = 'err';
+    fb.textContent = `✗  Answer: <${S.currentTarget}> — ${prosign.desc}   (${prosign.code})`;
+  }
+
+  recordResult(S.currentTarget, good);
+  syncStats();
+  later(startProsignRound, good ? 1200 : 2400);
+}
+
+// ═══════════════════════════════════════════════════════════
 // Shared round dispatch
 // ═══════════════════════════════════════════════════════════
 function startRound() {
   cancelPending();
   S.waitingInput = false;
-  if      (S.mode === 'char') startCharRound();
-  else if (S.mode === 'word') startWordRound();
-  else                        startSentRound();
+  if      (S.mode === 'char')    startCharRound();
+  else if (S.mode === 'word')    startWordRound();
+  else if (S.mode === 'prosign') startProsignRound();
+  else if (S.mode === 'custom')  startCustomRound();
+  else                           startSentRound();
 }
 
 function replayRound() {
@@ -977,19 +1181,32 @@ function replayRound() {
   fb.textContent = '';
   fb.className   = '';
 
-  if (S.mode === 'char') {
+  if (S.mode === 'char' || S.mode === 'prosign' || S.mode === 'custom') {
     S.pendingAnswer = null;
     disp.textContent = '?';
-    disp.className   = 'mode-char playing';
+    let code, modeClass;
+    if (S.mode === 'custom') {
+      code = customTargetCode(S.currentTarget);
+      modeClass = customModeClass(S.currentTarget);
+    } else if (S.mode === 'prosign') {
+      code = PROSIGNS.find(p => p.name === S.currentTarget).code;
+      modeClass = 'mode-prosign';
+    } else {
+      code = MORSE[S.currentTarget];
+      modeClass = 'mode-char';
+    }
+    disp.className = modeClass + ' playing';
     clearCharInput();
     document.getElementById('char-input').focus();
-    playCode(MORSE[S.currentTarget], () => {
+    playCode(code, () => {
       S.waitingInput = true;
-      disp.className = 'mode-char';
+      disp.className = modeClass;
       if (S.pendingAnswer !== null) {
         const ans = S.pendingAnswer;
         S.pendingAnswer = null;
-        onCharAnswer(ans);
+        if (S.mode === 'prosign') onProsignAnswer(ans);
+        else if (S.mode === 'custom') onCustomAnswer(ans);
+        else onCharAnswer(ans);
       }
     });
   } else {
@@ -1024,17 +1241,23 @@ function replayRound() {
 function resetPracticeUI(mode) {
   const disp = document.getElementById('main-display');
   disp.textContent = '?';
-  disp.className   = `mode-${mode}`;
+  // custom display class is corrected per-round by startCustomRound/replayRound
+  disp.className   = `mode-${mode === 'custom' ? 'char' : mode}`;
 
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className   = '';
 
-  const isMulti = mode !== 'char';
+  const isMulti = (mode !== 'char' && mode !== 'prosign' && mode !== 'custom');
   document.getElementById('char-input-row').style.display  = isMulti ? 'none'  : 'flex';
   document.getElementById('multi-input-row').classList.toggle('active', isMulti);
+  const hints = {
+    char:    'Type the character you hear · Space = replay · Enter = start/replay',
+    prosign: 'Type the prosign (e.g. AR SK BT) · Space = replay · Enter = start/replay',
+    custom:  'Type what you hear · 1 key = character, 2 keys = prosign · Space = replay',
+  };
   document.getElementById('hint-text').textContent = isMulti
     ? 'Type what you heard · Enter or Submit to check'
-    : 'Type the character you hear · Space = replay · Enter = start/replay';
+    : (hints[mode] || hints.char);
 
   if (isMulti) {
     clearMultiInput();
@@ -1061,7 +1284,7 @@ function clearMultiInput() {
 function syncButtons() {
   const p      = S.isPlaying;
   const paused = S.isPaused;
-  const isMulti = S.mode !== 'char';
+  const isMulti = (S.mode !== 'char' && S.mode !== 'prosign' && S.mode !== 'custom');
 
   document.getElementById('btn-play').disabled   = p || paused;
   document.getElementById('btn-replay').disabled = p;
@@ -1165,6 +1388,138 @@ function buildSentCatButtons() {
   document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
 }
 
+function buildCustomPanel() {
+  const GROUPS = [
+    { label: 'A–Z',      keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
+    { label: '0–9',      keys: '0123456789'.split('') },
+    { label: 'Punct',    keys: ['/','(','&','=','+','.', ',','?','!',')',':', ';','-','@'] },
+    { label: 'Prosigns', keys: PROSIGNS.map(p => p.name) },
+  ];
+
+  const qb = document.getElementById('custom-quick-btns');
+
+  // "All" button
+  const allBtn = document.createElement('button');
+  allBtn.className = 'cat-btn';
+  allBtn.textContent = 'All';
+  allBtn.addEventListener('click', () => {
+    Object.keys(MORSE).forEach(k => S.customSet.add(k));
+    PROSIGNS.forEach(p => S.customSet.add(p.name));
+    refreshCustomGrid();
+    updateCustomInfo();
+  });
+  qb.appendChild(allBtn);
+
+  // Group toggle buttons
+  GROUPS.forEach(g => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn';
+    b.textContent = g.label;
+    b.addEventListener('click', () => {
+      const allOn = g.keys.every(k => S.customSet.has(k));
+      g.keys.forEach(k => allOn ? S.customSet.delete(k) : S.customSet.add(k));
+      refreshCustomGrid();
+      updateCustomInfo();
+    });
+    qb.appendChild(b);
+  });
+
+  // "Clear" button
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'cat-btn';
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('click', () => {
+    S.customSet.clear();
+    refreshCustomGrid();
+    updateCustomInfo();
+  });
+  qb.appendChild(clearBtn);
+
+  buildCustomSymbolGrid();
+  updateCustomInfo();
+}
+
+function buildCustomSymbolGrid() {
+  const grid = document.getElementById('custom-symbol-grid');
+  grid.innerHTML = '';
+
+  function addSection(label) {
+    const sep = document.createElement('div');
+    sep.className = 'custom-sym-section';
+    sep.textContent = label;
+    grid.appendChild(sep);
+  }
+
+  function makeBtn(key, label) {
+    const b = document.createElement('button');
+    b.className = 'custom-sym' + (S.customSet.has(key) ? ' selected' : '');
+    b.textContent = label;
+    b.dataset.key = key;
+    const p = PROSIGNS.find(pr => pr.name === key);
+    b.title = (p ? p.code + ' — ' + p.desc : MORSE[key]);
+    b.addEventListener('click', () => {
+      if (S.customSet.has(key)) S.customSet.delete(key);
+      else                      S.customSet.add(key);
+      b.classList.toggle('selected', S.customSet.has(key));
+      updateCustomInfo();
+    });
+    return b;
+  }
+
+  addSection('Letters');
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(k => grid.appendChild(makeBtn(k, k)));
+
+  addSection('Numbers');
+  '0123456789'.split('').forEach(k => grid.appendChild(makeBtn(k, k)));
+
+  addSection('Punctuation');
+  ['/','(','&','=','+','.', ',','?','!',')',':', ';','-','@'].forEach(k => grid.appendChild(makeBtn(k, k)));
+
+  addSection('Prosigns');
+  PROSIGNS.forEach(p => grid.appendChild(makeBtn(p.name, `<${p.name}>`)));
+}
+
+function refreshCustomGrid() {
+  document.querySelectorAll('#custom-symbol-grid .custom-sym').forEach(b => {
+    b.classList.toggle('selected', S.customSet.has(b.dataset.key));
+  });
+}
+
+function updateCustomInfo() {
+  const n = S.customSet.size;
+  document.getElementById('custom-desc').textContent =
+    n === 0 ? 'No symbols selected — click to add' : `${n} symbol${n === 1 ? '' : 's'} selected`;
+}
+
+function buildProsignPanel() {
+  const ctr = document.getElementById('prosign-cat-btns');
+  PROSIGN_CATS.forEach((cat, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.prosignCat ? ' active' : '');
+    b.textContent = cat.name;
+    b.addEventListener('click', () => {
+      S.prosignCat = i;
+      ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      updateProsignInfo();
+      if (S.mode === 'prosign') startRound();
+    });
+    ctr.appendChild(b);
+  });
+  updateProsignInfo();
+}
+
+function updateProsignInfo() {
+  const cat = PROSIGN_CATS[S.prosignCat];
+  document.getElementById('prosign-cat-desc').textContent = cat.desc;
+  const inCat = new Set(cat.names);
+  document.getElementById('prosign-list').innerHTML = PROSIGNS
+    .filter(p => inCat.has(p.name))
+    .map(p => `<span style="display:inline-block;margin:2px 10px 2px 0">` +
+               `<span style="color:var(--yellow)">&lt;${p.name}&gt;</span> ` +
+               `<span style="color:var(--muted)">${p.desc}</span></span>`)
+    .join('');
+}
+
 function buildRefGrid() {
   const grid     = document.getElementById('ref-grid');
   const inLesson = new Set(LESSONS[S.level].chars);
@@ -1178,6 +1533,22 @@ function buildRefGrid() {
       if (S.isPlaying) return;
       playCode(code);
     });
+    grid.appendChild(d);
+  });
+
+  // Prosigns section
+  const sep = document.createElement('div');
+  sep.style.cssText = 'grid-column:1/-1;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);' +
+                      'font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;';
+  sep.textContent = 'Prosigns';
+  grid.appendChild(sep);
+
+  PROSIGNS.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'ref-item';
+    d.innerHTML = `<span class="ref-char">&lt;${p.name}&gt;</span><span class="ref-code">${p.code}</span>`;
+    d.title = `${p.desc} — click to hear`;
+    d.addEventListener('click', () => { if (S.isPlaying) return; playCode(p.code); });
     grid.appendChild(d);
   });
 }
@@ -1247,15 +1618,21 @@ function initEvents() {
   charInp.addEventListener('input', e => {
     if (S.suppressInput) return;
     const v = e.target.value;
-    if (v.length > 0) {
+    // Custom mode: require 2 keys when the current target is a prosign, else 1
+    const required = (S.mode === 'prosign' ||
+                      (S.mode === 'custom' && S.currentTarget &&
+                       PROSIGNS.some(p => p.name === S.currentTarget))) ? 2 : 1;
+    if (v.length >= required) {
       S.suppressInput = true;
       e.target.value = '';
       setTimeout(() => { S.suppressInput = false; }, 0);
+      const ans = v.trim().toUpperCase().slice(0, required);
       if (S.waitingInput) {
-        onCharAnswer(v);
-      } else if (S.isPlaying && S.mode === 'char' && S.pendingAnswer === null) {
-        // Buffer the first keystroke typed during playback; flush when done
-        S.pendingAnswer = v.trim().toUpperCase()[0] || null;
+        if (S.mode === 'prosign') onProsignAnswer(ans);
+        else if (S.mode === 'custom') onCustomAnswer(ans);
+        else onCharAnswer(ans);
+      } else if (S.isPlaying && S.pendingAnswer === null) {
+        S.pendingAnswer = ans;
       }
     }
   });
@@ -1284,7 +1661,7 @@ function initEvents() {
     if (e.target === multiInp) return;
     if (e.key === ' ') {
       e.preventDefault();
-      if (S.isPlaying && S.mode !== 'char') pauseRound();
+      if (S.isPlaying && S.mode !== 'char' && S.mode !== 'prosign' && S.mode !== 'custom') pauseRound();
       else if (S.isPaused) resumeRound();
       else replayRound();
     }
@@ -1307,6 +1684,8 @@ function init() {
   buildLevelButtons();
   buildWordCatButtons();
   buildSentCatButtons();
+  buildCustomPanel();
+  buildProsignPanel();
   buildRefGrid();
   initEvents();
   syncStats();

@@ -4,7 +4,7 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 
 ## Features
 
-- **Three practice modes**: Character, Word, and Sentence copy practice
+- **Five practice modes**: Character, Word, Sentence, Prosign, and Custom copy practice
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
@@ -12,8 +12,10 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Master gain node**: replay and skip immediately silence any in-progress audio with no bleed-over
 - **Adaptive repetition**: missed characters and words are weighted more heavily in selection — weight = `(errors+1)/(total+1)` — so struggling items appear more often without completely crowding out others
 - **Per-character accuracy display**: lesson characters are color-coded after each answer (grey = unseen, green ≥ 80%, yellow ≥ 50%, red < 50%); hover any character to see the exact percentage
+- **Prosign recognition**: 9 standard CW procedure signals sent as merged code (no inter-character gap); answer by typing the 2-letter abbreviation
+- **Custom drill set**: hand-pick any combination of characters and prosigns to practice; group quick-selectors (A–Z, 0–9, Punct, Prosigns) toggle entire groups on or off
 - **Answer comparison**: per-character highlighting for words, per-word highlighting for sentences
-- **Clickable reference chart**: hear any character on demand
+- **Clickable reference chart**: hear any character or prosign on demand; prosigns appear in a dedicated section below the character table
 - **Session stats**: correct, total, accuracy percentage, and streak tracking; Reset Stats clears the weight history
 
 ## Lessons
@@ -53,6 +55,32 @@ Open `index.html` in any modern browser — no build step or server required.
 3. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart
 4. Type the sentence you heard and press **Enter** or **Submit**
 5. Correct and incorrect words are highlighted word by word
+
+### Custom mode
+1. Click individual symbols in the grid to toggle them in or out of the drill set; use the quick-select buttons (**A–Z**, **0–9**, **Punct**, **Prosigns**, **All**, **Clear**) to add or remove whole groups at once
+2. Click **Play** — a symbol is drawn at random from your set, weighted toward ones you've missed
+3. Type what you heard — the answer submits after **1 keystroke** for a character or **2 keystrokes** for a prosign, adapting automatically each round
+4. Feedback shows the correct symbol, its code, and (for prosigns) its description on a wrong answer
+
+### Prosign mode
+1. Choose **Basic** (AR SK BT KN AS) or **All** (9 prosigns)
+2. Click **Play** — the prosign is sent as a single merged sequence with no inter-character gap
+3. Type the 2-letter abbreviation (e.g. `AR`, `SK`) — the answer submits automatically on the second keystroke
+4. Feedback shows the prosign name, its description, and its code on a wrong answer
+
+## Prosigns
+
+| Prosign | Code | Meaning |
+|---------|------|---------|
+| `<AR>` | `.-.-. ` | End of message |
+| `<SK>` | `...-.-` | End of contact |
+| `<BT>` | `-...-` | Break / separator |
+| `<KN>` | `-.--. ` | Go ahead (specific station) |
+| `<AS>` | `.-...` | Wait / stand by |
+| `<SN>` | `...-. ` | Understood |
+| `<CT>` | `-.-.-` | Start of message |
+| `<CL>` | `-.-..-..` | Closing station |
+| `<HH>` | `........` | Error in keying |
 
 ## Farnsworth Timing Formula
 
