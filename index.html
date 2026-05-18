@@ -272,6 +272,33 @@
     .ref-code { color: var(--text); letter-spacing: 0.1em; }
 
     .hint { font-size: 0.65rem; color: var(--muted); text-align: center; margin-top: 8px; }
+
+    /* ── Ham reference panel ── */
+    #ham-ref-content { display: none; margin-top: 12px; }
+    #ham-ref-content.open { display: block; }
+    #ham-ref-toggle {
+      background: none; border: none; color: var(--muted);
+      font-family: inherit; font-size: 0.78rem; cursor: pointer; padding: 0;
+    }
+    #ham-ref-toggle:hover { color: var(--text); }
+    .ham-ref-section {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 12px 0 5px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ham-ref-section:first-child { margin-top: 0; }
+    .ham-ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1px 6px;
+    }
+    .ham-ref-item { display: flex; gap: 8px; padding: 2px 4px; font-size: 0.72rem; border-radius: 3px; }
+    .ham-ref-abbr    { color: var(--yellow); min-width: 40px; flex-shrink: 0; }
+    .ham-ref-meaning { color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -407,7 +434,15 @@
     </div>
   </div>
 
-  <!-- Reference -->
+  <!-- Ham / Prosign quick reference -->
+  <div class="card">
+    <button id="ham-ref-toggle">&#9658; Ham Radio Quick Reference (click to expand)</button>
+    <div id="ham-ref-content">
+      <div id="ham-ref-body"></div>
+    </div>
+  </div>
+
+  <!-- Morse Code Reference -->
   <div class="card">
     <button id="ref-toggle">&#9658; Morse Code Reference (click to expand)</button>
     <div id="ref-content">
@@ -583,6 +618,90 @@ const PROSIGNS = [
 const PROSIGN_CATS = [
   { name: 'Basic', desc: '5 most common prosigns', names: ['AR','SK','BT','KN','AS'] },
   { name: 'All',   desc: 'All 9 prosigns',         names: PROSIGNS.map(p => p.name) },
+];
+
+// ═══════════════════════════════════════════════════════════
+// Ham radio quick-reference data
+// ═══════════════════════════════════════════════════════════
+const HAM_REF = [
+  {
+    title: 'Prosigns',
+    angle: true,
+    items: PROSIGNS.map(p => [p.name, p.desc]),
+  },
+  {
+    title: 'Q-codes',
+    items: [
+      ['CQ',  'Calling all stations'],
+      ['DE',  'From (identifies the sender)'],
+      ['QRM', 'Interference (man-made)'],
+      ['QRN', 'Static (natural noise)'],
+      ['QRO', 'Increase power'],
+      ['QRP', 'Reduce power / low-power operation'],
+      ['QRQ', 'Send faster'],
+      ['QRS', 'Send more slowly'],
+      ['QRT', 'Stop transmitting'],
+      ['QRU', 'Nothing for you'],
+      ['QRV', 'Ready to receive'],
+      ['QRX', 'Stand by'],
+      ['QRZ', 'Who is calling me?'],
+      ['QSB', 'Signal fading'],
+      ['QSK', 'Full break-in'],
+      ['QSL', 'I confirm / confirmation card'],
+      ['QSO', 'Two-way contact'],
+      ['QSY', 'Change frequency'],
+      ['QTC', 'Message(s) to send'],
+      ['QTH', 'Location'],
+      ['QTR', 'Correct time'],
+    ],
+  },
+  {
+    title: 'Common Abbreviations',
+    items: [
+      ['73',   'Best regards'],
+      ['88',   'Love and kisses'],
+      ['AGN',  'Again'],
+      ['ANT',  'Antenna'],
+      ['BK',   'Break'],
+      ['CPY',  'Copy'],
+      ['CUL',  'See you later'],
+      ['CW',   'Continuous wave (Morse)'],
+      ['DX',   'Long-distance contact'],
+      ['ES',   'And'],
+      ['FB',   'Fine business (excellent)'],
+      ['GE',   'Good evening'],
+      ['GM',   'Good morning'],
+      ['HF',   'High frequency (3–30 MHz)'],
+      ['HI',   'Ha ha (laughter)'],
+      ['HR',   'Here / hear'],
+      ['HW',   'How (how copy?)'],
+      ['MNI',  'Many'],
+      ['MSG',  'Message'],
+      ['NR',   'Number'],
+      ['OM',   'Old man (male operator)'],
+      ['PSE',  'Please'],
+      ['PWR',  'Power'],
+      ['RIG',  'Transceiver / radio'],
+      ['RPT',  'Repeat'],
+      ['RST',  'Readability, strength, tone'],
+      ['RX',   'Receiver'],
+      ['SIG',  'Signal'],
+      ['SSB',  'Single sideband'],
+      ['SWL',  'Short-wave listener'],
+      ['TNX',  'Thanks'],
+      ['TU',   'Thank you'],
+      ['TX',   'Transmitter'],
+      ['UHF',  'Ultra high frequency'],
+      ['UR',   'Your / you are'],
+      ['VFO',  'Variable frequency oscillator'],
+      ['VHF',  'Very high frequency'],
+      ['VY',   'Very'],
+      ['WKD',  'Worked (made contact with)'],
+      ['WX',   'Weather'],
+      ['XYL',  'Wife'],
+      ['YL',   'Young lady (female operator)'],
+    ],
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -1388,6 +1507,28 @@ function buildSentCatButtons() {
   document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
 }
 
+function buildHamRefPanel() {
+  const body = document.getElementById('ham-ref-body');
+  HAM_REF.forEach(section => {
+    const hdr = document.createElement('div');
+    hdr.className = 'ham-ref-section';
+    hdr.textContent = section.title;
+    body.appendChild(hdr);
+
+    const grid = document.createElement('div');
+    grid.className = 'ham-ref-grid';
+    section.items.forEach(([abbr, meaning]) => {
+      const item = document.createElement('div');
+      item.className = 'ham-ref-item';
+      const label = section.angle ? `&lt;${esc(abbr)}&gt;` : esc(abbr);
+      item.innerHTML = `<span class="ham-ref-abbr">${label}</span>` +
+                       `<span class="ham-ref-meaning">${esc(meaning)}</span>`;
+      grid.appendChild(item);
+    });
+    body.appendChild(grid);
+  });
+}
+
 function buildCustomPanel() {
   const GROUPS = [
     { label: 'A–Z',      keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
@@ -1668,7 +1809,15 @@ function initEvents() {
     if (e.key === 'Enter') { e.preventDefault(); if (!S.isPlaying && !S.isPaused) startRound(); }
   });
 
-  // Reference toggle
+  // Ham reference toggle
+  document.getElementById('ham-ref-toggle').addEventListener('click', () => {
+    const c = document.getElementById('ham-ref-content');
+    c.classList.toggle('open');
+    document.getElementById('ham-ref-toggle').textContent =
+      (c.classList.contains('open') ? '▼' : '►') + ' Ham Radio Quick Reference (click to expand)';
+  });
+
+  // Morse code reference toggle
   document.getElementById('ref-toggle').addEventListener('click', () => {
     const c = document.getElementById('ref-content');
     c.classList.toggle('open');
@@ -1684,6 +1833,7 @@ function init() {
   buildLevelButtons();
   buildWordCatButtons();
   buildSentCatButtons();
+  buildHamRefPanel();
   buildCustomPanel();
   buildProsignPanel();
   buildRefGrid();

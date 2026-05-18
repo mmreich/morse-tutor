@@ -16,6 +16,7 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Custom drill set**: hand-pick any combination of characters and prosigns to practice; group quick-selectors (A–Z, 0–9, Punct, Prosigns) toggle entire groups on or off
 - **Answer comparison**: per-character highlighting for words, per-word highlighting for sentences
 - **Clickable reference chart**: hear any character or prosign on demand; prosigns appear in a dedicated section below the character table
+- **Ham Radio Quick Reference**: expandable panel listing all prosigns, 21 Q-codes, and 39 common CW abbreviations with definitions
 - **Session stats**: correct, total, accuracy percentage, and streak tracking; Reset Stats clears the weight history
 
 ## Lessons
