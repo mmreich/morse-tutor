@@ -122,28 +122,6 @@
     #main-display.correct   { color: var(--green); }
     #main-display.incorrect { color: var(--red);   }
 
-    /* ── Morse pattern ── */
-    #morse-pattern {
-      display: flex;
-      gap: 7px;
-      justify-content: center;
-      align-items: center;
-      min-height: 24px;
-      padding: 4px 0 10px;
-      flex-wrap: wrap;
-    }
-    .el {
-      display: inline-block;
-      border-radius: 3px;
-      height: 10px;
-      background: var(--dim);
-      transition: background 0.05s, box-shadow 0.05s;
-    }
-    .el.dit { width: 10px; border-radius: 50%; }
-    .el.dah { width: 30px; }
-    .el.lit  { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
-    .el.done { background: var(--muted); }
-
     /* ── Feedback ── */
     #feedback {
       text-align: center;
@@ -252,7 +230,8 @@
     }
     .ref-item {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
+      gap: 8px;
       padding: 3px 6px;
       border-radius: 3px;
       border: 1px solid transparent;
@@ -263,7 +242,7 @@
     .ref-item:hover { background: var(--border); }
     .ref-item.in-lesson { border-color: var(--accent); background: rgba(59,79,216,0.1); }
     .ref-char { color: var(--yellow); }
-    .ref-code { color: var(--dim); letter-spacing: 0.1em; }
+    .ref-code { color: var(--text); letter-spacing: 0.1em; }
 
     .hint { font-size: 0.65rem; color: var(--muted); text-align: center; margin-top: 8px; }
   </style>
@@ -337,7 +316,6 @@
   <!-- Practice -->
   <div class="card" id="practice-card">
     <div id="main-display" class="mode-char">?</div>
-    <div id="morse-pattern"></div>
     <div id="feedback"></div>
 
     <!-- Character mode input (single key, auto-submit) -->
@@ -361,6 +339,7 @@
       <button class="btn btn-primary"   id="btn-play">&#9654; Play</button>
       <button class="btn btn-secondary" id="btn-replay">&#8635; Replay</button>
       <button class="btn btn-secondary" id="btn-skip">&#9197; Skip</button>
+      <button class="btn btn-secondary" id="btn-pause" style="display:none">&#9646;&#9646; Pause</button>
     </div>
     <div class="hint" id="hint-text">
       Type the character you hear &bull; Space&nbsp;=&nbsp;replay &bull; Enter&nbsp;=&nbsp;start/replay
@@ -553,6 +532,7 @@ const S = {
   sentCat: 0,         // sentence category index
   currentTarget: null,// string (single char, word, or sentence)
   isPlaying: false,
+  isPaused: false,
   waitingInput: false,
   correct: 0,
   total: 0,
@@ -633,28 +613,27 @@ function cancelPending() {
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
   S.isPlaying = false;
+  S.isPaused = false;
   syncButtons();
 }
 
-// ═══════════════════════════════════════════════════════════
-// Pattern display
-// ═══════════════════════════════════════════════════════════
-function buildPattern(code) {
-  const ctr = document.getElementById('morse-pattern');
-  ctr.innerHTML = '';
-  code.split('').forEach(sym => {
-    const s = document.createElement('span');
-    s.className = 'el ' + (sym === '.' ? 'dit' : 'dah');
-    ctr.appendChild(s);
-  });
+function pauseRound() {
+  if (!S.isPlaying || S.mode === 'char') return;
+  if (S.audioCtx) S.audioCtx.suspend();
+  S.pendingTimeouts.forEach(clearTimeout);
+  S.pendingTimeouts = [];
+  S.isPlaying = false;
+  S.isPaused = true;
+  syncButtons();
 }
 
-function revealPattern() {
-  document.querySelectorAll('#morse-pattern .el').forEach(el => {
-    el.classList.remove('lit');
-    el.classList.add('done');
-  });
+function resumeRound() {
+  if (!S.isPaused) return;
+  S.isPaused = false;
+  replayRound();
 }
+
+// ═══════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════
 // Play a single character's code
@@ -674,17 +653,6 @@ function playCode(code, onDone) {
     tone(S.freq, at, dur / 1000);
     at += dur / 1000;
 
-    const idx = i, t0 = wt, t1 = wt + dur;
-    later(() => {
-      document.querySelectorAll('#morse-pattern .el').forEach(p => p.classList.remove('lit'));
-      const el = document.querySelectorAll('#morse-pattern .el')[idx];
-      if (el) el.classList.add('lit');
-    }, t0);
-    later(() => {
-      const el = document.querySelectorAll('#morse-pattern .el')[idx];
-      if (el) { el.classList.remove('lit'); el.classList.add('done'); }
-    }, t1);
-
     wt += dur;
     if (i < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
   });
@@ -699,7 +667,7 @@ function playCode(code, onDone) {
 // ═══════════════════════════════════════════════════════════
 // Play a full string (word or sentence) with Farnsworth gaps
 // onCharStart(char, code, charIdxInWord, wordIdx, wordLen, wordCount)
-//   fires ~25ms before each character starts so buildPattern has time to run.
+//   fires ~25ms before each character starts.
 // onDone fires when the last element has sounded.
 // ═══════════════════════════════════════════════════════════
 function playString(text, onCharStart, onDone) {
@@ -732,17 +700,6 @@ function playString(text, onCharStart, onDone) {
         const dur = sym === '.' ? T.dit : T.dah;
         tone(S.freq, at, dur / 1000);
         at += dur / 1000;
-
-        const idx = si, t0 = wt, t1 = wt + dur;
-        later(() => {
-          document.querySelectorAll('#morse-pattern .el').forEach(p => p.classList.remove('lit'));
-          const el = document.querySelectorAll('#morse-pattern .el')[idx];
-          if (el) el.classList.add('lit');
-        }, t0);
-        later(() => {
-          const el = document.querySelectorAll('#morse-pattern .el')[idx];
-          if (el) { el.classList.remove('lit'); el.classList.add('done'); }
-        }, t1);
 
         wt += dur;
         if (si < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
@@ -807,7 +764,6 @@ function startCharRound() {
   const code = MORSE[S.currentTarget];
 
   resetPracticeUI('char');
-  buildPattern(code);
   document.getElementById('char-input').focus();
 
   playCode(code, () => {
@@ -833,7 +789,6 @@ function onCharAnswer(raw) {
   const inp  = document.getElementById('char-input');
 
   disp.textContent = S.currentTarget;
-  revealPattern();
 
   if (good) {
     S.correct++; S.streak++;
@@ -871,7 +826,6 @@ function startWordRound() {
   playString(
     S.currentTarget,
     (ch, code, ci, wi, nChars, nWords) => {
-      buildPattern(code);
       disp.textContent = `Letter ${ci + 1} / ${nChars}`;
     },
     () => {
@@ -895,7 +849,6 @@ function onWordAnswer() {
   const fb   = document.getElementById('feedback');
   const inp  = document.getElementById('multi-input');
 
-  revealPattern();
   document.getElementById('btn-submit').disabled = true;
 
   if (good) {
@@ -947,7 +900,6 @@ function startSentRound() {
   playString(
     S.currentTarget,
     (ch, code, ci, wi, nChars, _nWords) => {
-      buildPattern(code);
       disp.textContent = `Word ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
     },
     () => {
@@ -970,7 +922,6 @@ function onSentAnswer() {
   const fb   = document.getElementById('feedback');
   const inp  = document.getElementById('multi-input');
 
-  revealPattern();
   document.getElementById('btn-submit').disabled = true;
 
   const expWords = S.currentTarget.split(' ');
@@ -1031,7 +982,6 @@ function replayRound() {
     disp.textContent = '?';
     disp.className   = 'mode-char playing';
     clearCharInput();
-    buildPattern(MORSE[S.currentTarget]);
     document.getElementById('char-input').focus();
     playCode(MORSE[S.currentTarget], () => {
       S.waitingInput = true;
@@ -1054,7 +1004,6 @@ function replayRound() {
     playString(
       S.currentTarget,
       (ch, code, ci, wi, nChars) => {
-        buildPattern(code);
         disp.textContent = S.mode === 'word'
           ? `Letter ${ci + 1} / ${nChars}`
           : `Word ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
@@ -1079,7 +1028,6 @@ function resetPracticeUI(mode) {
 
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className   = '';
-  document.getElementById('morse-pattern').innerHTML = '';
 
   const isMulti = mode !== 'char';
   document.getElementById('char-input-row').style.display  = isMulti ? 'none'  : 'flex';
@@ -1111,10 +1059,26 @@ function clearMultiInput() {
 }
 
 function syncButtons() {
-  const p = S.isPlaying;
-  document.getElementById('btn-play').disabled   = p;
+  const p      = S.isPlaying;
+  const paused = S.isPaused;
+  const isMulti = S.mode !== 'char';
+
+  document.getElementById('btn-play').disabled   = p || paused;
   document.getElementById('btn-replay').disabled = p;
   document.getElementById('btn-skip').disabled   = p;
+
+  const pauseBtn = document.getElementById('btn-pause');
+  if (p && isMulti) {
+    pauseBtn.style.display = '';
+    pauseBtn.textContent   = '⏸ Pause';
+    pauseBtn.disabled      = false;
+  } else if (paused) {
+    pauseBtn.style.display = '';
+    pauseBtn.textContent   = '▶ Resume';
+    pauseBtn.disabled      = false;
+  } else {
+    pauseBtn.style.display = 'none';
+  }
 }
 
 function syncStats() {
@@ -1212,8 +1176,7 @@ function buildRefGrid() {
     d.title = `Click to hear ${ch}`;
     d.addEventListener('click', () => {
       if (S.isPlaying) return;
-      buildPattern(code);
-      playCode(code, () => revealPattern());
+      playCode(code);
     });
     grid.appendChild(d);
   });
@@ -1258,10 +1221,14 @@ function initEvents() {
     });
   });
 
-  // Play / Replay / Skip
+  // Play / Replay / Skip / Pause
   document.getElementById('btn-play').addEventListener('click',   () => { if (!S.isPlaying) startRound(); });
   document.getElementById('btn-replay').addEventListener('click', replayRound);
   document.getElementById('btn-skip').addEventListener('click',   () => { if (!S.isPlaying) startRound(); });
+  document.getElementById('btn-pause').addEventListener('click',  () => {
+    if (S.isPlaying) pauseRound();
+    else if (S.isPaused) resumeRound();
+  });
   document.getElementById('btn-reset').addEventListener('click',  () => {
     S.correct = S.total = S.streak = 0;
     S.stats = {};
@@ -1315,8 +1282,13 @@ function initEvents() {
       return;
     }
     if (e.target === multiInp) return;
-    if (e.key === ' ')     { e.preventDefault(); if (!S.isPlaying) replayRound(); }
-    if (e.key === 'Enter') { e.preventDefault(); if (!S.isPlaying) startRound(); }
+    if (e.key === ' ') {
+      e.preventDefault();
+      if (S.isPlaying && S.mode !== 'char') pauseRound();
+      else if (S.isPaused) resumeRound();
+      else replayRound();
+    }
+    if (e.key === 'Enter') { e.preventDefault(); if (!S.isPlaying && !S.isPaused) startRound(); }
   });
 
   // Reference toggle

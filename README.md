@@ -8,11 +8,13 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
-- **Real-time pattern animation**: dots and dashes light up in sync with audio playback, tracking through multi-character words and sentences character by character
+- **Pause/resume**: word and sentence playback can be paused mid-sequence with the **⏸ Pause** button or **Space** — **▶ Resume** or **↺ Replay** restart from the beginning of the current item
 - **Master gain node**: replay and skip immediately silence any in-progress audio with no bleed-over
+- **Adaptive repetition**: missed characters and words are weighted more heavily in selection — weight = `(errors+1)/(total+1)` — so struggling items appear more often without completely crowding out others
+- **Per-character accuracy display**: lesson characters are color-coded after each answer (grey = unseen, green ≥ 80%, yellow ≥ 50%, red < 50%); hover any character to see the exact percentage
 - **Answer comparison**: per-character highlighting for words, per-word highlighting for sentences
 - **Clickable reference chart**: hear any character on demand
-- **Session stats**: correct, total, accuracy percentage, and streak tracking
+- **Session stats**: correct, total, accuracy percentage, and streak tracking; Reset Stats clears the weight history
 
 ## Lessons
 
@@ -41,14 +43,16 @@ Open `index.html` in any modern browser — no build step or server required.
 ### Word mode
 1. Pick a word category (3-letter, 4–5 letter, 6+ letter, Ham radio, All)
 2. Click **Play** — a random word is sent; the display shows `Letter X / Y` as each character plays
-3. Type the word you heard and press **Enter** or **Submit**
-4. Correct and incorrect characters are highlighted letter by letter
+3. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart
+4. Type the word you heard and press **Enter** or **Submit**
+5. Correct and incorrect characters are highlighted letter by letter
 
 ### Sentence mode
 1. Pick a sentence category (Short, Medium, Long, Ham radio, All)
 2. Click **Play** — the display shows `Word X / N · Letter Y / M` during playback
-3. Type the sentence you heard and press **Enter** or **Submit**
-4. Correct and incorrect words are highlighted word by word
+3. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart
+4. Type the sentence you heard and press **Enter** or **Submit**
+5. Correct and incorrect words are highlighted word by word
 
 ## Farnsworth Timing Formula
 
