@@ -57,6 +57,8 @@ Open `index.html` in any modern browser — no build step or server required.
 4. Type the sentence you heard and press **Enter** or **Submit**
 5. Correct and incorrect words are highlighted word by word
 
+The **Ham radio** sentence category contains 42 authentic QSO phrases spanning CQ calls (standard, DX, SOTA, POTA, contest), RST signal reports, QTH/name/rig exchanges, QRP and homebrew rigs, SKCC straight-key exchanges, closing sequences, QRM/QSY handling, DX conditions (band openings, solar flux, grey line), equipment talk, and NTS traffic passing.
+
 ### Custom mode
 1. Click individual symbols in the grid to toggle them in or out of the drill set; use the quick-select buttons (**A–Z**, **0–9**, **Punct**, **Prosigns**, **All**, **Clear**) to add or remove whole groups at once
 2. Click **Play** — a symbol is drawn at random from your set, weighted toward ones you've missed
