@@ -344,6 +344,7 @@
       <button class="mode-tab"        data-mode="sent">Sentence</button>
       <button class="mode-tab"        data-mode="prosign">Prosign</button>
       <button class="mode-tab"        data-mode="custom">Custom</button>
+      <button class="mode-tab"        data-mode="random">Random</button>
     </div>
 
     <!-- Character sub-panel -->
@@ -382,6 +383,15 @@
       <div class="cat-btns" id="prosign-cat-btns"></div>
       <div class="sub-desc"  id="prosign-cat-desc"></div>
       <div class="sub-chars" id="prosign-list"></div>
+    </div>
+
+    <!-- Random sub-panel -->
+    <div class="sub-panel" id="sub-random">
+      <div class="card-title">Random — character pool</div>
+      <div class="cat-btns" id="random-pool-btns"></div>
+      <div class="card-title" style="margin-top:10px">Length</div>
+      <div class="cat-btns" id="random-cat-btns"></div>
+      <div class="sub-desc" id="random-cat-desc"></div>
     </div>
   </div>
 
@@ -651,6 +661,27 @@ const PROSIGN_CATS = [
 ];
 
 // ═══════════════════════════════════════════════════════════
+// Random sequence pools & length categories
+// Each round generates a fresh string of space-separated groups
+// drawn from the active character pool.
+// ═══════════════════════════════════════════════════════════
+const RANDOM_POOLS = [
+  { name: 'Letters', desc: 'A–Z',                      chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
+  { name: 'Numbers', desc: '0–9',                      chars: '0123456789'.split('') },
+  { name: 'Alnum',   desc: 'Letters + numbers',        chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('') },
+  { name: 'Punct',   desc: 'Punctuation only',         chars: ['/','(','&','=','+','.', ',','?','!',')',':', ';','-','@'] },
+  { name: 'All',     desc: 'Every valid Morse symbol', chars: Object.keys(MORSE) },
+];
+
+const RANDOM_CATS = [
+  { name: 'Single', desc: '1 group, 3–5 chars',     groups: [1,1],  len: [3,5] },
+  { name: 'Short',  desc: '2–4 groups, 3–5 chars',  groups: [2,4],  len: [3,5] },
+  { name: 'Medium', desc: '4–6 groups, 3–6 chars',  groups: [4,6],  len: [3,6] },
+  { name: 'Long',   desc: '6–10 groups, 4–8 chars', groups: [6,10], len: [4,8] },
+  { name: 'Mixed',  desc: '2–10 groups, 1–9 chars', groups: [2,10], len: [1,9] },
+];
+
+// ═══════════════════════════════════════════════════════════
 // Ham radio quick-reference data
 // ═══════════════════════════════════════════════════════════
 const HAM_REF = [
@@ -688,48 +719,94 @@ const HAM_REF = [
   {
     title: 'Common Abbreviations',
     items: [
-      ['73',   'Best regards'],
-      ['88',   'Love and kisses'],
-      ['AGN',  'Again'],
-      ['ANT',  'Antenna'],
-      ['BK',   'Break'],
-      ['CPY',  'Copy'],
-      ['CUL',  'See you later'],
+      ['73',     'Best regards'],
+      ['88',     'Love and kisses'],
+      ['AGN',    'Again'],
+      ['ANT',    'Antenna'],
+      ['BK',     'Break'],
+      ['BURO',   'QSL bureau (forwarding service)'],
+      ['CFM',    'Confirm'],
+      ['CONDX',  'Band conditions'],
+      ['CPY',    'Copy'],
+      ['CUAGN',  'See you again'],
+      ['CUL',    'See you later'],
+      ['DX',     'Long-distance contact'],
+      ['ES',     'And'],
+      ['FB',     'Fine business (excellent)'],
+      ['FER',    'For'],
+      ['FIST',   "Operator's sending style / rhythm"],
+      ['FR',     'For / from'],
+      ['FREQ',   'Frequency'],
+      ['GE',     'Good evening'],
+      ['GM',     'Good morning'],
+      ['GN',     'Good night'],
+      ['HI',     'Ha ha (laughter)'],
+      ['HPE',    'Hope'],
+      ['HR',     'Here / hear'],
+      ['HW',     'How (how copy?)'],
+      ['LIC',    'Licensed'],
+      ['MNI',    'Many'],
+      ['MSG',    'Message'],
+      ['NIL',    'Nothing / none'],
+      ['NR',     'Number'],
+      ['OM',     'Old man (male operator)'],
+      ['OPR',    'Operator'],
+      ['PSE',    'Please'],
+      ['PWR',    'Power'],
+      ['RIG',    'Transceiver / radio'],
+      ['RPT',    'Repeat'],
+      ['RST',    'Readability, strength, tone'],
+      ['RX',     'Receiver'],
+      ['SIG',    'Signal'],
+      ['SRI',    'Sorry'],
+      ['SWL',    'Short-wave listener'],
+      ['TEMP',   'Temperature'],
+      ['TNX',    'Thanks'],
+      ['TONITE', 'Tonight'],
+      ['TU',     'Thank you'],
+      ['TX',     'Transmitter'],
+      ['UR',     'Your / you are'],
+      ['VY',     'Very'],
+      ['WKD',    'Worked (made contact with)'],
+      ['WL',     'Will'],
+      ['WUD',    'Would'],
+      ['WX',     'Weather'],
+      ['XYL',    'Wife'],
+      ['YL',     'Young lady (female operator)'],
+      ['YRS',    'Years'],
+    ],
+  },
+  {
+    title: 'Bands, Modes & Units',
+    items: [
       ['CW',   'Continuous wave (Morse)'],
-      ['DX',   'Long-distance contact'],
-      ['ES',   'And'],
-      ['FB',   'Fine business (excellent)'],
-      ['GE',   'Good evening'],
-      ['GM',   'Good morning'],
+      ['EME',  'Earth-Moon-Earth (moonbounce)'],
+      ['FT',   'Feet (e.g. antenna height)'],
       ['HF',   'High frequency (3–30 MHz)'],
-      ['HI',   'Ha ha (laughter)'],
-      ['HR',   'Here / hear'],
-      ['HW',   'How (how copy?)'],
-      ['MNI',  'Many'],
-      ['MSG',  'Message'],
-      ['NR',   'Number'],
-      ['OM',   'Old man (male operator)'],
-      ['PSE',  'Please'],
-      ['PWR',  'Power'],
-      ['RIG',  'Transceiver / radio'],
-      ['RPT',  'Repeat'],
-      ['RST',  'Readability, strength, tone'],
-      ['RX',   'Receiver'],
-      ['SIG',  'Signal'],
-      ['SSB',  'Single sideband'],
-      ['SWL',  'Short-wave listener'],
-      ['TNX',  'Thanks'],
-      ['TU',   'Thank you'],
-      ['TX',   'Transmitter'],
-      ['UHF',  'Ultra high frequency'],
-      ['UR',   'Your / you are'],
+      ['KHZ',  'Kilohertz'],
+      ['M',    'Meters — band wavelength (e.g. 20M, 40M)'],
+      ['MHZ',  'Megahertz'],
+      ['PSK',  'Phase-shift keying (digital mode)'],
+      ['RTTY', 'Radioteletype'],
+      ['SSB',  'Single sideband (voice)'],
+      ['UHF',  'Ultra high frequency (>300 MHz)'],
       ['VFO',  'Variable frequency oscillator'],
-      ['VHF',  'Very high frequency'],
-      ['VY',   'Very'],
-      ['WKD',  'Worked (made contact with)'],
-      ['WX',   'Weather'],
-      ['XYL',  'Wife'],
-      ['YL',   'Young lady (female operator)'],
+      ['VHF',  'Very high frequency (30–300 MHz)'],
+      ['W',    'Watts (transmit power)'],
+    ],
+  },
+  {
+    title: 'Programs, Awards & Organizations',
+    items: [
+      ['ARRL', 'American Radio Relay League (US ham org)'],
+      ['DXC',  'DX Cluster (spotting network)'],
+      ['DXCC', 'DX Century Club (100-country award)'],
+      ['IARU', 'International Amateur Radio Union'],
+      ['LOTW', 'Logbook of The World (electronic QSL)'],
+      ['NTS',  'National Traffic System (US message relay)'],
+      ['POTA', 'Parks On The Air'],
+      ['SKCC', 'Straight Key Century Club'],
+      ['SOTA', 'Summits On The Air'],
     ],
   },
 ];
@@ -741,12 +818,14 @@ const S = {
   charWPM: 20,
   textWPM: 10,
   freq: 600,
-  mode: 'char',       // 'char' | 'word' | 'sent'
+  mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random'
   level: 0,           // char lesson index
   wordCat: 0,         // word category index
   sentCat: 0,         // sentence category index
   prosignCat: 0,      // prosign category index
   customSet: new Set(), // keys of symbols selected for custom drill
+  randomPool: 0,      // random char pool index
+  randomCat: 2,       // random length category index (default Medium)
   currentTarget: null,// string (single char, word, or sentence)
   isPlaying: false,
   isPaused: false,
@@ -1308,6 +1387,107 @@ function onProsignAnswer(raw) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Round management — Random mode
+// ═══════════════════════════════════════════════════════════
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateRandomString() {
+  const pool = RANDOM_POOLS[S.randomPool].chars;
+  const cat  = RANDOM_CATS[S.randomCat];
+  const nGroups = randInt(cat.groups[0], cat.groups[1]);
+  const groups = [];
+  for (let i = 0; i < nGroups; i++) {
+    const n = randInt(cat.len[0], cat.len[1]);
+    let g = '';
+    for (let j = 0; j < n; j++) {
+      g += pool[Math.floor(Math.random() * pool.length)];
+    }
+    groups.push(g);
+  }
+  return groups.join(' ');
+}
+
+function randomModeClass() {
+  return S.currentTarget && S.currentTarget.includes(' ') ? 'mode-sent' : 'mode-word';
+}
+
+function startRandomRound() {
+  S.currentTarget = generateRandomString();
+
+  resetPracticeUI('random');
+
+  const disp = document.getElementById('main-display');
+  const modeClass = randomModeClass();
+  disp.textContent = '▶';
+  disp.className = modeClass + ' playing';
+  document.getElementById('multi-input').focus();
+
+  const nWords = S.currentTarget.split(' ').length;
+
+  playString(
+    S.currentTarget,
+    (ch, code, ci, wi, nChars) => {
+      disp.textContent = nWords === 1
+        ? `Letter ${ci + 1} / ${nChars}`
+        : `Group ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
+    },
+    () => {
+      S.waitingInput = true;
+      disp.textContent = '?';
+      disp.className = modeClass;
+      document.getElementById('btn-submit').disabled = false;
+    }
+  );
+}
+
+function onRandomAnswer() {
+  if (!S.waitingInput) return;
+  const raw = document.getElementById('multi-input').value.trim().toUpperCase();
+  if (!raw) return;
+
+  S.waitingInput = false;
+  S.total++;
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const inp  = document.getElementById('multi-input');
+  const modeClass = randomModeClass();
+
+  document.getElementById('btn-submit').disabled = true;
+
+  const expWords = S.currentTarget.split(' ');
+  const actWords = raw.split(/\s+/);
+  const correctCount = expWords.filter((w, i) => w === actWords[i]).length;
+  const good = correctCount === expWords.length;
+
+  if (good) {
+    S.correct++; S.streak++;
+    disp.textContent = S.currentTarget;
+    disp.className   = modeClass + ' correct';
+    inp.className    = 'ok';
+    fb.className     = 'ok';
+    fb.textContent   = '✓ Correct!';
+  } else {
+    S.streak = 0;
+    disp.textContent = S.currentTarget;
+    disp.className   = modeClass + ' incorrect';
+    inp.className    = 'err';
+    fb.className     = 'err';
+    const cmp = expWords.map((w, i) =>
+      w === actWords[i]
+        ? `<span class="cmp-ok">${esc(w)}</span>`
+        : `<span class="cmp-err">${esc(w)}</span>`
+    ).join(' ');
+    const label = expWords.length === 1 ? 'group' : 'groups';
+    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} ${label})</span>`;
+  }
+
+  syncStats();
+  later(startRandomRound, good ? 2000 : 4000);
+}
+
+// ═══════════════════════════════════════════════════════════
 // Shared round dispatch
 // ═══════════════════════════════════════════════════════════
 function startRound() {
@@ -1317,6 +1497,7 @@ function startRound() {
   else if (S.mode === 'word')    startWordRound();
   else if (S.mode === 'prosign') startProsignRound();
   else if (S.mode === 'custom')  startCustomRound();
+  else if (S.mode === 'random')  startRandomRound();
   else                           startSentRound();
 }
 
@@ -1359,7 +1540,9 @@ function replayRound() {
       }
     });
   } else {
-    const modeClass = S.mode === 'word' ? 'mode-word' : 'mode-sent';
+    const modeClass = S.mode === 'word'   ? 'mode-word'
+                    : S.mode === 'random' ? randomModeClass()
+                    :                       'mode-sent';
     disp.textContent = '▶';
     disp.className   = modeClass + ' playing';
     clearMultiInput();
@@ -1367,12 +1550,13 @@ function replayRound() {
     document.getElementById('multi-input').focus();
 
     const nWords = S.currentTarget.split(' ').length;
+    const groupLabel = S.mode === 'random' ? 'Group' : 'Word';
     playString(
       S.currentTarget,
       (ch, code, ci, wi, nChars) => {
-        disp.textContent = S.mode === 'word'
+        disp.textContent = (S.mode === 'word' || (S.mode === 'random' && nWords === 1))
           ? `Letter ${ci + 1} / ${nChars}`
-          : `Word ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
+          : `${groupLabel} ${wi + 1} / ${nWords}  ·  Letter ${ci + 1} / ${nChars}`;
       },
       () => {
         S.waitingInput = true;
@@ -1390,8 +1574,11 @@ function replayRound() {
 function resetPracticeUI(mode) {
   const disp = document.getElementById('main-display');
   disp.textContent = '?';
-  // custom display class is corrected per-round by startCustomRound/replayRound
-  disp.className   = `mode-${mode === 'custom' ? 'char' : mode}`;
+  // custom and random display classes are corrected per-round by their start/replay handlers
+  const cls = mode === 'custom' ? 'char'
+            : mode === 'random' ? 'sent'
+            : mode;
+  disp.className = `mode-${cls}`;
 
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className   = '';
@@ -1403,9 +1590,10 @@ function resetPracticeUI(mode) {
     char:    'Type the character you hear · Space = replay · Enter = start/replay',
     prosign: 'Type the prosign (e.g. AR SK BT) · Space = replay · Enter = start/replay',
     custom:  'Type what you hear · 1 key = character, 2 keys = prosign · Space = replay',
+    random:  'Type each group separated by spaces · Enter or Submit to check',
   };
   document.getElementById('hint-text').textContent = isMulti
-    ? 'Type what you heard · Enter or Submit to check'
+    ? (hints[mode] || 'Type what you heard · Enter or Submit to check')
     : (hints[mode] || hints.char);
 
   if (isMulti) {
@@ -1535,6 +1723,47 @@ function buildSentCatButtons() {
   });
   const cat = SENT_CATS[S.sentCat];
   document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+}
+
+function buildRandomPanel() {
+  const poolCtr = document.getElementById('random-pool-btns');
+  RANDOM_POOLS.forEach((pool, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.randomPool ? ' active' : '');
+    b.textContent = pool.name;
+    b.title = pool.desc;
+    b.addEventListener('click', () => {
+      S.randomPool = i;
+      poolCtr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      updateRandomInfo();
+      if (S.mode === 'random') startRound();
+    });
+    poolCtr.appendChild(b);
+  });
+
+  const catCtr = document.getElementById('random-cat-btns');
+  RANDOM_CATS.forEach((cat, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.randomCat ? ' active' : '');
+    b.textContent = cat.name;
+    b.title = cat.desc;
+    b.addEventListener('click', () => {
+      S.randomCat = i;
+      catCtr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      updateRandomInfo();
+      if (S.mode === 'random') startRound();
+    });
+    catCtr.appendChild(b);
+  });
+
+  updateRandomInfo();
+}
+
+function updateRandomInfo() {
+  const pool = RANDOM_POOLS[S.randomPool];
+  const cat  = RANDOM_CATS[S.randomCat];
+  document.getElementById('random-cat-desc').textContent =
+    `${cat.desc} · pool: ${pool.desc} (${pool.chars.length} symbols)`;
 }
 
 function buildHamRefPanel() {
@@ -1778,10 +2007,11 @@ function initEvents() {
     updateLessonInfo();
   });
 
-  // Submit button (word/sent modes)
+  // Submit button (word/sent/random modes)
   document.getElementById('btn-submit').addEventListener('click', () => {
-    if (S.mode === 'word') onWordAnswer();
-    else                   onSentAnswer();
+    if      (S.mode === 'word')   onWordAnswer();
+    else if (S.mode === 'random') onRandomAnswer();
+    else                          onSentAnswer();
   });
 
   // Character input (single-key auto-submit)
@@ -1814,8 +2044,9 @@ function initEvents() {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (S.waitingInput) {
-        if (S.mode === 'word') onWordAnswer();
-        else                   onSentAnswer();
+        if      (S.mode === 'word')   onWordAnswer();
+        else if (S.mode === 'random') onRandomAnswer();
+        else                          onSentAnswer();
       }
     }
   });
@@ -1866,6 +2097,7 @@ function init() {
   buildHamRefPanel();
   buildCustomPanel();
   buildProsignPanel();
+  buildRandomPanel();
   buildRefGrid();
   initEvents();
   syncStats();

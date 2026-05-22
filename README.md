@@ -4,7 +4,7 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 
 ## Features
 
-- **Five practice modes**: Character, Word, Sentence, Prosign, and Custom copy practice
+- **Six practice modes**: Character, Word, Sentence, Prosign, Custom, and Random copy practice
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
@@ -14,9 +14,10 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Per-character accuracy display**: lesson characters are color-coded after each answer (grey = unseen, green ≥ 80%, yellow ≥ 50%, red < 50%); hover any character to see the exact percentage
 - **Prosign recognition**: 9 standard CW procedure signals sent as merged code (no inter-character gap); answer by typing the 2-letter abbreviation
 - **Custom drill set**: hand-pick any combination of characters and prosigns to practice; group quick-selectors (A–Z, 0–9, Punct, Prosigns) toggle entire groups on or off
+- **Random sequences**: freshly generated each round from a chosen character pool (Letters, Numbers, Letters+Numbers, Punctuation, or All) and a length preset (Single, Short, Medium, Long, Mixed) ranging from a single 3–5 char group up to 2–10 groups of 1–9 chars
 - **Answer comparison**: per-character highlighting for words, per-word highlighting for sentences
 - **Clickable reference chart**: hear any character or prosign on demand; prosigns appear in a dedicated section below the character table
-- **Ham Radio Quick Reference**: expandable panel listing all prosigns, 21 Q-codes, and 39 common CW abbreviations with definitions
+- **Ham Radio Quick Reference**: expandable panel with four sections — all 9 prosigns, 21 Q-codes, 55 common CW abbreviations, 14 bands/modes/units, and 9 programs & awards (ARRL, IARU, DXCC, SOTA, POTA, SKCC, NTS, LOTW, DXC) with definitions
 - **Session stats**: correct, total, accuracy percentage, and streak tracking; Reset Stats clears the weight history
 
 ## Lessons
@@ -70,6 +71,22 @@ The **Ham radio** sentence category contains 42 authentic QSO phrases spanning C
 2. Click **Play** — the prosign is sent as a single merged sequence with no inter-character gap
 3. Type the 2-letter abbreviation (e.g. `AR`, `SK`) — the answer submits automatically on the second keystroke
 4. Feedback shows the prosign name, its description, and its code on a wrong answer
+
+### Random mode
+1. Pick a **character pool**: Letters, Numbers, Alnum (letters + numbers), Punct, or All (every valid Morse symbol)
+2. Pick a **length preset**:
+
+   | Preset | Groups | Chars per group |
+   |--------|--------|-----------------|
+   | Single | 1      | 3–5             |
+   | Short  | 2–4    | 3–5             |
+   | Medium | 4–6    | 3–6             |
+   | Long   | 6–10   | 4–8             |
+   | Mixed  | 2–10   | 1–9             |
+
+3. Click **Play** — a fresh random sequence is generated and sent; the display shows `Group X / N · Letter Y / M` during playback (or `Letter Y / M` for single-group rounds)
+4. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart from the beginning
+5. Type each group separated by spaces and press **Enter** or **Submit** — correct and incorrect groups are highlighted
 
 ## Prosigns
 
