@@ -859,6 +859,7 @@ const S = {
   pendingTimeouts: [],
   audioCtx: null,
   masterGain: null,
+  sessionGain: null,    // per-playback gain node — disconnect to abort all queued tones
   suppressInput: false,
   pendingAnswer: null,
   stats: {},            // key → { correct, total }
@@ -895,12 +896,25 @@ function masterGain() {
   return S.masterGain;
 }
 
-function silenceAndResume() {
+// Each call to playCode/playString opens a new "session" — a dedicated gain
+// node that all of that playback's oscillators connect through. Disconnecting
+// the session gain instantly mutes every queued or in-flight tone in that
+// session without affecting any later session.
+function newSession() {
+  killSession();
   const c = audioCtx();
-  const g = masterGain();
-  g.gain.cancelScheduledValues(c.currentTime);
-  g.gain.setValueAtTime(0, c.currentTime);
-  g.gain.setValueAtTime(1, c.currentTime + 0.025);
+  const g = c.createGain();
+  g.connect(masterGain());
+  g.gain.setValueAtTime(1, c.currentTime);
+  S.sessionGain = g;
+  return g;
+}
+
+function killSession() {
+  if (S.sessionGain) {
+    try { S.sessionGain.disconnect(); } catch (e) {}
+    S.sessionGain = null;
+  }
 }
 
 function tone(freq, t0, dur) {
@@ -908,7 +922,7 @@ function tone(freq, t0, dur) {
   const osc = c.createOscillator();
   const g   = c.createGain();
   osc.connect(g);
-  g.connect(masterGain());
+  g.connect(S.sessionGain || masterGain());
   osc.type = 'sine';
   osc.frequency.value = freq;
   const r = Math.min(0.006, dur * 0.1);
@@ -928,7 +942,7 @@ function later(fn, ms) {
 }
 
 function cancelPending() {
-  silenceAndResume();
+  killSession();
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
   S.isPlaying = false;
@@ -938,7 +952,9 @@ function cancelPending() {
 
 function pauseRound() {
   if (!S.isPlaying || S.mode === 'char' || S.mode === 'prosign' || S.mode === 'custom') return;
-  if (S.audioCtx) S.audioCtx.suspend();
+  // Fully tear down the current playback. Replay will start over from
+  // the beginning of the same target rather than resuming mid-stream.
+  killSession();
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
   S.isPlaying = false;
@@ -961,6 +977,7 @@ function playCode(code, onDone) {
   cancelPending();
   S.isPlaying = true;
   syncButtons();
+  newSession();
 
   const T  = timings();
   const c  = audioCtx();
@@ -993,6 +1010,7 @@ function playString(text, onCharStart, onDone) {
   cancelPending();
   S.isPlaying = true;
   syncButtons();
+  newSession();
 
   const T      = timings();
   const c      = audioCtx();
@@ -2003,15 +2021,24 @@ function initEvents() {
     document.getElementById('v-freq').textContent = S.freq;
   });
 
-  // Mode tabs
+  // Mode tabs — switching modes stops any in-progress audio and waits
+  // for the user to press Play (or Enter) before starting a new round.
   document.querySelectorAll('.mode-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const m = tab.dataset.mode;
+      if (S.mode === m) return;
       S.mode = m;
+      cancelPending();
+      S.waitingInput = false;
+      S.currentTarget = null;
+      S.pendingAnswer = null;
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
       document.getElementById(`sub-${m}`).classList.add('active');
-      startRound();
+      resetPracticeUI(m);
+      const fb = document.getElementById('feedback');
+      fb.textContent = '▶ Click Play or press Enter to start';
+      fb.className = '';
     });
   });
 
