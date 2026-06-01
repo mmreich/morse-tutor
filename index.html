@@ -58,6 +58,22 @@
     .slider-row { display: flex; align-items: center; gap: 8px; }
     input[type=range] { accent-color: var(--green); width: 90px; cursor: pointer; }
     .val { font-size: 0.82rem; color: var(--green); min-width: 56px; }
+    .num-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      color: var(--green);
+      font-family: inherit;
+      font-size: 0.82rem;
+      width: 64px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .num-input:focus { border-color: var(--accent); }
+    /* Keep spinner arrows visible (Firefox shows them by default) */
+    .num-input::-webkit-inner-spin-button,
+    .num-input::-webkit-outer-spin-button { opacity: 1; }
 
     /* ── Mode tabs ── */
     .mode-tabs {
@@ -322,8 +338,8 @@
       <div class="setting-group">
         <label>Text Speed <span style="color:var(--accent)">(Farnsworth)</span></label>
         <div class="slider-row">
-          <input type="range" id="sl-text" min="3" max="40" value="10" step="1">
-          <span class="val"><span id="v-text">10</span> WPM</span>
+          <input type="number" id="in-text" class="num-input" min="3" max="40" value="10" step="1">
+          <span class="val">WPM</span>
         </div>
       </div>
       <div class="setting-group">
@@ -1285,12 +1301,13 @@ function onSentAnswer() {
         ? `<span class="cmp-ok">${esc(w)}</span>`
         : `<span class="cmp-err">${esc(w)}</span>`
     ).join(' ');
-    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} words)</span>`;
+    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} words)</span>` +
+                   `<br><span style="color:var(--muted);font-size:0.82rem">▶ Press Play or Enter for the next sentence</span>`;
   }
 
   recordResult(S.currentTarget, good);
   syncStats();
-  later(startSentRound, good ? 2000 : 4000);
+  if (good) later(startSentRound, 2000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1521,11 +1538,12 @@ function onRandomAnswer() {
         : `<span class="cmp-err">${esc(w)}</span>`
     ).join(' ');
     const label = expWords.length === 1 ? 'group' : 'groups';
-    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} ${label})</span>`;
+    fb.innerHTML = `✗ &nbsp;${cmp} &nbsp;<span style="color:var(--muted)">(${correctCount}/${expWords.length} ${label})</span>` +
+                   `<br><span style="color:var(--muted);font-size:0.82rem">▶ Press Play or Enter for the next sequence</span>`;
   }
 
   syncStats();
-  later(startRandomRound, good ? 2000 : 4000);
+  if (good) later(startRandomRound, 2000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2000,21 +2018,38 @@ function buildRefGrid() {
 function initEvents() {
   // Sliders
   const slChar = document.getElementById('sl-char');
-  const slText = document.getElementById('sl-text');
+  const inText = document.getElementById('in-text');
   const slFreq = document.getElementById('sl-freq');
   slChar.addEventListener('input', () => {
     S.charWPM = +slChar.value;
     document.getElementById('v-char').textContent = S.charWPM;
     if (S.textWPM > S.charWPM) {
       S.textWPM = S.charWPM;
-      slText.value = S.textWPM;
-      document.getElementById('v-text').textContent = S.textWPM;
+      inText.value = S.textWPM;
     }
   });
-  slText.addEventListener('input', () => {
-    S.textWPM = Math.min(+slText.value, S.charWPM);
-    slText.value = S.textWPM;
-    document.getElementById('v-text').textContent = S.textWPM;
+  // Number input: live-update state when a valid in-range value is typed,
+  // but only write back / clamp when the user commits (blur, Enter, or
+  // spinner click). This lets the user type "20" without "2" snapping
+  // to the minimum first.
+  inText.addEventListener('input', () => {
+    const v = parseInt(inText.value, 10);
+    if (!isNaN(v) && v >= 3 && v <= 40) {
+      S.textWPM = Math.min(v, S.charWPM);
+    }
+  });
+  function commitTextWPM() {
+    let v = parseInt(inText.value, 10);
+    if (isNaN(v)) v = S.textWPM;
+    v = Math.max(3, Math.min(40, v));
+    v = Math.min(v, S.charWPM);
+    S.textWPM = v;
+    inText.value = v;
+  }
+  inText.addEventListener('change', commitTextWPM);
+  inText.addEventListener('blur',   commitTextWPM);
+  inText.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commitTextWPM(); inText.blur(); }
   });
   slFreq.addEventListener('input', () => {
     S.freq = +slFreq.value;
@@ -2088,7 +2123,8 @@ function initEvents() {
     }
   });
 
-  // Multi input — Enter to submit
+  // Multi input — Enter to submit answer, or to start the next round
+  // when waiting (e.g. after a wrong answer in sentence/random mode).
   const multiInp = document.getElementById('multi-input');
   multiInp.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -2097,6 +2133,8 @@ function initEvents() {
         if      (S.mode === 'word')   onWordAnswer();
         else if (S.mode === 'random') onRandomAnswer();
         else                          onSentAnswer();
+      } else if (!S.isPlaying && !S.isPaused) {
+        startRound();
       }
     }
   });
@@ -2111,6 +2149,7 @@ function initEvents() {
       return;
     }
     if (e.target === multiInp) return;
+    if (e.target === inText)   return;
     if (e.key === ' ') {
       e.preventDefault();
       if (S.isPlaying && S.mode !== 'char' && S.mode !== 'prosign' && S.mode !== 'custom') pauseRound();
