@@ -119,6 +119,47 @@
     .sub-desc  { font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
     .sub-chars { font-size: 0.72rem; color: var(--dim);   margin-top: 3px; letter-spacing: 0.08em; }
 
+    /* ── CW lamp (Aldis-style signal lamp, silent mode only) ── */
+    #lamp {
+      display: none;       /* shown only when silent mode is active */
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      margin: 4px auto 14px;
+      background: radial-gradient(circle at 35% 30%, #3a3f55 0%, #1a1d27 65%, #0d0f15 100%);
+      border: 3px solid var(--border);
+      box-shadow:
+        inset 0 0 12px rgba(0, 0, 0, 0.85),
+        inset 0 2px 4px rgba(255, 255, 255, 0.04);
+      transition: background 0.02s, box-shadow 0.02s, border-color 0.02s;
+    }
+    body.output-silent #lamp { display: block; }
+    #lamp.lit {
+      background: radial-gradient(circle at 35% 30%, #fffbe6 0%, #fde047 35%, var(--yellow) 65%, #b45309 100%);
+      border-color: #fbbf24;
+      box-shadow:
+        inset 0 0 10px rgba(180, 83, 9, 0.45),
+        0 0 28px rgba(251, 191, 36, 0.85),
+        0 0 60px rgba(251, 191, 36, 0.45);
+    }
+
+    /* ── Practice card top-right output toggle ── */
+    .practice-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .practice-header .label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+    .practice-header .cat-btn { padding: 3px 9px; font-size: 0.72rem; }
+
     /* ── Main display (adapts to mode) ── */
     #main-display {
       text-align: center;
@@ -413,6 +454,14 @@
 
   <!-- Practice -->
   <div class="card" id="practice-card">
+    <div class="practice-header">
+      <span class="label">Output</span>
+      <div id="output-mode-btns" style="display:flex;gap:4px">
+        <button class="cat-btn active" data-output="sound"  title="Audio tone">Sound</button>
+        <button class="cat-btn"        data-output="silent" title="Visual flash + vibration (mobile)">Silent</button>
+      </div>
+    </div>
+    <div id="lamp"></div>
     <div id="main-display" class="mode-char">?</div>
     <div id="feedback"></div>
 
@@ -857,6 +906,7 @@ const S = {
   charWPM: 20,
   textWPM: 10,
   freq: 600,
+  outputMode: 'sound', // 'sound' | 'silent' (visual + vibration)
   mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random'
   level: 0,           // char lesson index
   wordCat: 0,         // word category index
@@ -951,6 +1001,12 @@ function tone(freq, t0, dur) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Visual element output (CW "lamp")
+// ═══════════════════════════════════════════════════════════
+function flashOn()  { const l = document.getElementById('lamp'); if (l) l.classList.add('lit'); }
+function flashOff() { const l = document.getElementById('lamp'); if (l) l.classList.remove('lit'); }
+
+// ═══════════════════════════════════════════════════════════
 // Pending timeouts
 // ═══════════════════════════════════════════════════════════
 function later(fn, ms) {
@@ -959,8 +1015,10 @@ function later(fn, ms) {
 
 function cancelPending() {
   killSession();
+  if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) {} }
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
+  flashOff();
   S.isPlaying = false;
   S.isPaused = false;
   syncButtons();
@@ -971,8 +1029,10 @@ function pauseRound() {
   // Fully tear down the current playback. Replay will start over from
   // the beginning of the same target rather than resuming mid-stream.
   killSession();
+  if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) {} }
   S.pendingTimeouts.forEach(clearTimeout);
   S.pendingTimeouts = [];
+  flashOff();
   S.isPlaying = false;
   S.isPaused = true;
   syncButtons();
@@ -997,17 +1057,32 @@ function playCode(code, onDone) {
 
   const T  = timings();
   const c  = audioCtx();
+  const silent = S.outputMode === 'silent';
   let at   = c.currentTime + 0.06;
   let wt   = 60;
+  const vibe = [];  // navigator.vibrate pattern: [on, off, on, off, ...]
 
   code.split('').forEach((sym, i) => {
     const dur = sym === '.' ? T.dit : T.dah;
-    tone(S.freq, at, dur / 1000);
+    if (silent) {
+      later(flashOn,  wt);
+      later(flashOff, wt + dur);
+      vibe.push(dur);
+    } else {
+      tone(S.freq, at, dur / 1000);
+    }
     at += dur / 1000;
-
     wt += dur;
-    if (i < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
+    if (i < code.length - 1) {
+      at += T.elemGap / 1000;
+      wt += T.elemGap;
+      if (silent) vibe.push(T.elemGap);
+    }
   });
+
+  if (silent && navigator.vibrate && vibe.length) {
+    later(() => { try { navigator.vibrate(vibe); } catch (e) {} }, 60);
+  }
 
   later(() => {
     S.isPlaying = false;
@@ -1030,11 +1105,13 @@ function playString(text, onCharStart, onDone) {
 
   const T      = timings();
   const c      = audioCtx();
+  const silent = S.outputMode === 'silent';
   const words  = text.split(' ');
   const nWords = words.length;
 
   let at = c.currentTime + 0.06;
   let wt = 60;
+  const vibe = [];  // navigator.vibrate pattern: [on, off, on, off, ...]
 
   words.forEach((word, wi) => {
     const nChars = word.length;
@@ -1051,20 +1128,41 @@ function playString(text, onCharStart, onDone) {
       // Schedule each element
       code.split('').forEach((sym, si) => {
         const dur = sym === '.' ? T.dit : T.dah;
-        tone(S.freq, at, dur / 1000);
+        if (silent) {
+          later(flashOn,  wt);
+          later(flashOff, wt + dur);
+          vibe.push(dur);
+        } else {
+          tone(S.freq, at, dur / 1000);
+        }
         at += dur / 1000;
-
         wt += dur;
-        if (si < code.length - 1) { at += T.elemGap / 1000; wt += T.elemGap; }
+        if (si < code.length - 1) {
+          at += T.elemGap / 1000;
+          wt += T.elemGap;
+          if (silent) vibe.push(T.elemGap);
+        }
       });
 
       // Inter-character gap
-      if (ci < word.length - 1) { at += T.charGap / 1000; wt += T.charGap; }
+      if (ci < word.length - 1) {
+        at += T.charGap / 1000;
+        wt += T.charGap;
+        if (silent) vibe.push(T.charGap);
+      }
     });
 
     // Inter-word gap
-    if (wi < words.length - 1) { at += T.wordGap / 1000; wt += T.wordGap; }
+    if (wi < words.length - 1) {
+      at += T.wordGap / 1000;
+      wt += T.wordGap;
+      if (silent) vibe.push(T.wordGap);
+    }
   });
+
+  if (silent && navigator.vibrate && vibe.length) {
+    later(() => { try { navigator.vibrate(vibe); } catch (e) {} }, 60);
+  }
 
   later(() => {
     S.isPlaying = false;
@@ -2054,6 +2152,22 @@ function initEvents() {
   slFreq.addEventListener('input', () => {
     S.freq = +slFreq.value;
     document.getElementById('v-freq').textContent = S.freq;
+  });
+
+  // Output mode (Sound / Silent) — switching cancels any in-progress
+  // playback so the next round starts in the new mode cleanly. The
+  // body class drives lamp visibility (only shown in silent mode).
+  document.querySelectorAll('#output-mode-btns .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const m = btn.dataset.output;
+      if (S.outputMode === m) return;
+      S.outputMode = m;
+      document.querySelectorAll('#output-mode-btns .cat-btn').forEach(
+        b => b.classList.toggle('active', b === btn));
+      document.body.classList.toggle('output-silent', m === 'silent');
+      cancelPending();
+      S.waitingInput = false;
+    });
   });
 
   // Mode tabs — switching modes stops any in-progress audio and waits

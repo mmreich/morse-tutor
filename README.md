@@ -15,6 +15,7 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Prosign recognition**: 9 standard CW procedure signals sent as merged code (no inter-character gap); answer by typing the 2-letter abbreviation
 - **Custom drill set**: hand-pick any combination of characters and prosigns to practice; group quick-selectors (A–Z, 0–9, Punct, Prosigns) toggle entire groups on or off
 - **Random sequences**: freshly generated each round from a chosen character pool (Letters, Numbers, Letters+Numbers, Punctuation, or All) and a length preset (Single, Short, Medium, Long, Mixed) ranging from a single 3–5 char group up to 2–10 groups of 1–9 chars
+- **Silent mode**: an Output toggle at the top of the practice card switches between **Sound** (audio tone) and **Silent** (visual flash of an Aldis-style circular lamp, plus `navigator.vibrate` haptic patterns on supported mobile browsers) — useful for quiet practice
 - **Answer comparison**: per-character highlighting for words, per-word highlighting for sentences
 - **Clickable reference chart**: hear any character or prosign on demand; prosigns appear in a dedicated section below the character table
 - **Ham Radio Quick Reference**: expandable panel with four sections — all 9 prosigns, 21 Q-codes, 55 common CW abbreviations, 14 bands/modes/units, and 9 programs & awards (ARRL, IARU, DXCC, SOTA, POTA, SKCC, NTS, LOTW, DXC) with definitions
