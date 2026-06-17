@@ -178,6 +178,12 @@
     #main-display.mode-word    { font-size: 2.2rem; color: var(--yellow); }
     #main-display.mode-sent    { font-size: 1.1rem;  color: var(--yellow); letter-spacing: 0.04em; }
     #main-display.mode-prosign { font-size: 3.2rem; color: var(--yellow); letter-spacing: 0.04em; }
+    #main-display.mode-keyboard { font-size: 1.6rem; color: var(--yellow); letter-spacing: 0.04em; }
+    .kb-line  { display: inline; }
+    .kb-word  { white-space: nowrap; }
+    .kb-space { display: inline-block; width: 0.55em; }
+    .kb-cur   { color: var(--blue); font-weight: 700; text-decoration: underline; }
+    .kb-skip  { color: var(--dim); text-decoration: line-through; }
 
     /* ── Custom mode symbol picker ── */
     #custom-symbol-grid { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; }
@@ -262,6 +268,26 @@
     #multi-input:focus  { border-color: var(--accent); }
     #multi-input.ok  { border-color: var(--green); background: rgba(74,222,128,0.06); }
     #multi-input.err { border-color: var(--red);   background: rgba(248,113,113,0.06); }
+
+    #keyboard-input-row { display: none; }
+    #keyboard-input-row.active { display: flex; }
+    #keyboard-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1.05rem;
+      line-height: 1.4;
+      text-transform: uppercase;
+      outline: none;
+      resize: vertical;
+      transition: border-color 0.15s;
+      caret-color: var(--green);
+    }
+    #keyboard-input:focus { border-color: var(--accent); }
     #btn-submit {
       padding: 10px 16px;
       border-radius: 5px;
@@ -404,6 +430,7 @@
       <button class="mode-tab"        data-mode="prosign">Prosign</button>
       <button class="mode-tab"        data-mode="custom">Custom</button>
       <button class="mode-tab"        data-mode="random">Random</button>
+      <button class="mode-tab"        data-mode="keyboard">Keyboard</button>
     </div>
 
     <!-- Character sub-panel -->
@@ -452,6 +479,17 @@
       <div class="cat-btns" id="random-cat-btns"></div>
       <div class="sub-desc" id="random-cat-desc"></div>
     </div>
+
+    <!-- Keyboard sub-panel -->
+    <div class="sub-panel" id="sub-keyboard">
+      <div class="card-title">Keyboard &mdash; type text to send as Morse</div>
+      <div class="sub-desc">
+        Type any text into the box below the display, then press Play (or Enter)
+        to hear it sent as Morse using the current speed and tone settings.
+        Letters, numbers, and common punctuation are supported; unsupported
+        characters are shown <span style="text-decoration:line-through">struck&nbsp;through</span> and skipped.
+      </div>
+    </div>
   </div>
 
   <!-- Practice -->
@@ -482,6 +520,14 @@
              autocomplete="off" autocorrect="off"
              autocapitalize="characters" spellcheck="false">
       <button id="btn-submit" disabled>Submit</button>
+    </div>
+
+    <!-- Keyboard mode input (free text → Morse) -->
+    <div id="keyboard-input-row">
+      <textarea id="keyboard-input" rows="2"
+                placeholder="type text to send as Morse…"
+                autocomplete="off" autocorrect="off"
+                autocapitalize="characters" spellcheck="false"></textarea>
     </div>
 
     <div class="controls">
@@ -726,8 +772,132 @@ const SENT_CATS = [
     desc: 'All sentences combined',
     sents: [],
   },
+  {
+    name: 'Wikipedia',
+    desc: 'Live random sentences from Wikipedia (needs internet)',
+    sents: [],
+    source: 'wikipedia',
+  },
 ];
 SENT_CATS[4].sents = SENT_CATS.slice(0, 4).flatMap(c => c.sents);
+
+// ═══════════════════════════════════════════════════════════
+// Wikipedia sentence buffer
+//   Fetches random article intros and extracts sentences whose
+//   characters are all in the MORSE table. Used by the "Wikipedia"
+//   sentence category. Falls back gracefully when offline.
+// ═══════════════════════════════════════════════════════════
+const WIKI_API_URL = 'https://en.wikipedia.org/w/api.php' +
+                     '?action=query&generator=random&grnnamespace=0&grnlimit=5' +
+                     '&prop=extracts&exintro=1&explaintext=1' +
+                     '&format=json&origin=*';
+const WIKI_TARGET = 15;         // buffer target
+const WIKI_MIN_REFILL = 5;      // background refill threshold
+const WIKI_MAX_ATTEMPTS = 6;    // safety cap per fill
+const WIKI_MIN_WORDS = 5;
+const WIKI_MAX_WORDS = 12;
+
+const WIKI_BUFFER = [];
+let   WIKI_ERROR = null;
+let   WIKI_FETCH_PROMISE = null;   // single-flight guard for concurrent callers
+
+function ensureWikipediaBuffer() {
+  if (WIKI_BUFFER.length >= WIKI_TARGET) return Promise.resolve();
+  if (WIKI_FETCH_PROMISE) return WIKI_FETCH_PROMISE;
+  WIKI_FETCH_PROMISE = fillWikipediaBuffer().finally(() => {
+    WIKI_FETCH_PROMISE = null;
+    updateSentCatDesc();
+  });
+  updateSentCatDesc();
+  return WIKI_FETCH_PROMISE;
+}
+
+async function fillWikipediaBuffer() {
+  WIKI_ERROR = null;
+  let attempts = 0;
+  try {
+    while (WIKI_BUFFER.length < WIKI_TARGET && attempts < WIKI_MAX_ATTEMPTS) {
+      attempts++;
+      const res = await fetch(WIKI_API_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const pages = Object.values((data && data.query && data.query.pages) || {});
+      for (const page of pages) {
+        for (const sent of extractWikiSentences(page.extract || '')) {
+          WIKI_BUFFER.push(sent);
+          if (WIKI_BUFFER.length >= WIKI_TARGET) return;
+        }
+      }
+    }
+  } catch (e) {
+    WIKI_ERROR = (e && e.message) ? e.message : String(e);
+  }
+}
+
+function extractWikiSentences(extract) {
+  if (!extract) return [];
+  // Strip footnote markers and non-nested parentheticals first
+  let text = extract
+    .replace(/\[\d+\]/g, '')          // [1], [23]
+    .replace(/\([^()]*\)/g, '')       // simple parentheticals (IPA, dates, etc.)
+    .replace(/\s+/g, ' ');
+  // Split on sentence-ending punct followed by whitespace + capital letter
+  const parts = text.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+  const out = [];
+  for (let p of parts) {
+    const norm = normalizeForMorse(p);
+    if (isUsableSentence(norm)) out.push(norm);
+  }
+  return out;
+}
+
+function normalizeForMorse(s) {
+  return s
+    .toUpperCase()
+    .replace(/[‘’′]/g, "'")            // smart/prime single quotes
+    .replace(/[“”″]/g, '"')            // smart/prime double quotes
+    .replace(/[–—−]/g, '-')            // en/em dash, minus
+    .replace(/…/g, '...')              // ellipsis
+    .replace(/\s+/g, ' ')              // collapse whitespace
+    .replace(/\s+([,.;:!?])/g, '$1')   // drop stray space before punctuation
+                                       // (e.g. after removing a parenthetical)
+    .replace(/[.,;:!?'"\-]+$/, '')     // trim trailing punctuation
+    .trim();
+}
+
+function isUsableSentence(s) {
+  if (!s) return false;
+  const words = s.split(/\s+/);
+  if (words.length < WIKI_MIN_WORDS || words.length > WIKI_MAX_WORDS) return false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === ' ') continue;
+    if (!MORSE[ch]) return false;   // any unsupported char rejects the whole sentence
+  }
+  return true;
+}
+
+function updateSentCatDesc() {
+  const desc = document.getElementById('sent-cat-desc');
+  if (!desc) return;
+  const cat = SENT_CATS[S.sentCat];
+  if (!cat) return;
+  if (cat.source === 'wikipedia') {
+    let status;
+    if (WIKI_ERROR && WIKI_BUFFER.length === 0) {
+      status = ` — fetch failed (${WIKI_ERROR})`;
+    } else if (WIKI_FETCH_PROMISE) {
+      status = WIKI_BUFFER.length === 0
+        ? ' (loading…)'
+        : ` (${WIKI_BUFFER.length} ready, loading more…)`;
+    } else {
+      status = ` (${WIKI_BUFFER.length} ready)`;
+    }
+    desc.textContent = cat.desc + status;
+  } else {
+    desc.textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // Prosign data
@@ -909,7 +1079,7 @@ const S = {
   textWPM: 10,
   freq: 600,
   outputMode: 'sound', // 'sound' | 'silent' (visual + vibration)
-  mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random'
+  mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random' | 'keyboard'
   level: 0,           // char lesson index
   wordCat: 0,         // word category index
   sentCat: 0,         // sentence category index
@@ -1338,7 +1508,40 @@ function onWordAnswer() {
 // Round management — Sentence mode
 // ═══════════════════════════════════════════════════════════
 function startSentRound() {
-  S.currentTarget = weightedPick(SENT_CATS[S.sentCat].sents);
+  const cat = SENT_CATS[S.sentCat];
+
+  // Wikipedia category: pop from buffer; if empty, show loading and
+  // auto-resume once the buffer has at least one sentence.
+  if (cat.source === 'wikipedia') {
+    if (WIKI_BUFFER.length === 0) {
+      resetPracticeUI('sent');
+      const disp = document.getElementById('main-display');
+      disp.textContent = WIKI_ERROR ? 'Retrying Wikipedia…' : 'Fetching from Wikipedia…';
+      disp.className = 'mode-sent';
+      ensureWikipediaBuffer().then(() => {
+        // Resume only if user is still on this category and not already playing
+        const onWiki = (S.mode === 'sent'
+                        && SENT_CATS[S.sentCat]
+                        && SENT_CATS[S.sentCat].source === 'wikipedia');
+        if (!onWiki || S.isPlaying || S.isPaused) return;
+        if (WIKI_BUFFER.length > 0) {
+          startSentRound();
+        } else {
+          const fb = document.getElementById('feedback');
+          fb.textContent = '✗ Wikipedia fetch failed' +
+                           (WIKI_ERROR ? ': ' + WIKI_ERROR : '') +
+                           ' — press Play or Enter to retry';
+          fb.className = 'err';
+        }
+      });
+      return;
+    }
+    S.currentTarget = WIKI_BUFFER.shift();
+    updateSentCatDesc();
+    if (WIKI_BUFFER.length < WIKI_MIN_REFILL) ensureWikipediaBuffer();
+  } else {
+    S.currentTarget = weightedPick(cat.sents);
+  }
 
   resetPracticeUI('sent');
 
@@ -1647,17 +1850,98 @@ function onRandomAnswer() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Keyboard mode — type text, hear the corresponding Morse
+// (a sender/encoder, not a copy quiz — no grading or stats)
+// ═══════════════════════════════════════════════════════════
+function normalizeKeyboardText(s) {
+  return s
+    .toUpperCase()
+    .replace(/[‘’′]/g, "'")            // smart/prime single quotes
+    .replace(/[“”″]/g, '"')            // smart/prime double quotes
+    .replace(/[–—−]/g, '-')            // en/em dash, minus
+    .replace(/…/g, '...')              // ellipsis
+    .replace(/\s+/g, ' ')              // collapse all whitespace (incl. newlines)
+    .trim();
+}
+
+function prettyCode(code) {
+  return code.replace(/\./g, '·').replace(/-/g, '–');
+}
+
+// Render the text with the currently-sounding character highlighted.
+// Pass hlWord/hlChar = -1 for no highlight (idle / preview / finished).
+function buildKeyboardMarkup(text, hlWord, hlChar) {
+  const words = text.split(' ');
+  const wordHtml = words.map((w, wi) =>
+    '<span class="kb-word">' +
+    w.split('').map((ch, ci) => {
+      if (wi === hlWord && ci === hlChar) return `<span class="kb-cur">${esc(ch)}</span>`;
+      return MORSE[ch] ? esc(ch) : `<span class="kb-skip">${esc(ch)}</span>`;
+    }).join('') +
+    '</span>'
+  ).join('<span class="kb-space"> </span>');
+  return `<span class="kb-line">${wordHtml}</span>`;
+}
+
+// Shared playback for Play/Skip and Replay in keyboard mode.
+function playKeyboard(text) {
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  // Keep the base (yellow) class while playing so the blue per-character
+  // highlight stands out rather than being washed out by the .playing color.
+  disp.className = 'mode-keyboard';
+  disp.innerHTML = buildKeyboardMarkup(text, -1, -1);
+  playString(
+    text,
+    (ch, code, ci, wi) => {
+      disp.innerHTML = buildKeyboardMarkup(text, wi, ci);
+      fb.className   = '';
+      fb.innerHTML   = `<span style="color:var(--muted)">${esc(ch)} = ${prettyCode(code)}</span>`;
+    },
+    () => {
+      disp.className = 'mode-keyboard';
+      disp.innerHTML = buildKeyboardMarkup(text, -1, -1);
+      fb.className   = '';
+      fb.innerHTML   = '<span style="color:var(--muted)">▶ Press Play or Enter to send again</span>';
+    }
+  );
+}
+
+function startKeyboardRound() {
+  const inp  = document.getElementById('keyboard-input');
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const text = normalizeKeyboardText(inp.value);
+
+  resetPracticeUI('keyboard');
+
+  const playable = text.split('').some(ch => ch !== ' ' && MORSE[ch]);
+  if (!playable) {
+    disp.className = 'mode-keyboard';
+    disp.innerHTML = '<span style="color:var(--muted)">⌨</span>';
+    fb.className   = 'err';
+    fb.textContent = '✗ Type some text (letters, numbers, or punctuation) to send';
+    inp.focus();
+    return;
+  }
+
+  S.currentTarget = text;
+  playKeyboard(text);
+}
+
+// ═══════════════════════════════════════════════════════════
 // Shared round dispatch
 // ═══════════════════════════════════════════════════════════
 function startRound() {
   cancelPending();
   S.waitingInput = false;
-  if      (S.mode === 'char')    startCharRound();
-  else if (S.mode === 'word')    startWordRound();
-  else if (S.mode === 'prosign') startProsignRound();
-  else if (S.mode === 'custom')  startCustomRound();
-  else if (S.mode === 'random')  startRandomRound();
-  else                           startSentRound();
+  if      (S.mode === 'char')     startCharRound();
+  else if (S.mode === 'word')     startWordRound();
+  else if (S.mode === 'prosign')  startProsignRound();
+  else if (S.mode === 'custom')   startCustomRound();
+  else if (S.mode === 'random')   startRandomRound();
+  else if (S.mode === 'keyboard') startKeyboardRound();
+  else                            startSentRound();
 }
 
 function replayRound() {
@@ -1669,6 +1953,11 @@ function replayRound() {
   const fb   = document.getElementById('feedback');
   fb.textContent = '';
   fb.className   = '';
+
+  if (S.mode === 'keyboard') {
+    playKeyboard(S.currentTarget);
+    return;
+  }
 
   if (S.mode === 'char' || S.mode === 'prosign' || S.mode === 'custom') {
     S.pendingAnswer = null;
@@ -1742,20 +2031,28 @@ function resetPracticeUI(mode) {
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className   = '';
 
-  const isMulti = (mode !== 'char' && mode !== 'prosign' && mode !== 'custom');
-  document.getElementById('char-input-row').style.display  = isMulti ? 'none'  : 'flex';
+  const isKeyboard = (mode === 'keyboard');
+  const isMulti = (!isKeyboard && mode !== 'char' && mode !== 'prosign' && mode !== 'custom');
+  document.getElementById('char-input-row').style.display = (isMulti || isKeyboard) ? 'none' : 'flex';
   document.getElementById('multi-input-row').classList.toggle('active', isMulti);
+  document.getElementById('keyboard-input-row').classList.toggle('active', isKeyboard);
   const hints = {
-    char:    'Type the character you hear · Space = replay · Enter = start/replay',
-    prosign: 'Type the prosign (e.g. AR SK BT) · Space = replay · Enter = start/replay',
-    custom:  'Type what you hear · 1 key = character, 2 keys = prosign · Space = replay',
-    random:  'Type each group separated by spaces · Enter or Submit to check',
+    char:     'Type the character you hear · Space = replay · Enter = start/replay',
+    prosign:  'Type the prosign (e.g. AR SK BT) · Space = replay · Enter = start/replay',
+    custom:   'Type what you hear · 1 key = character, 2 keys = prosign · Space = replay',
+    random:   'Type each group separated by spaces · Enter or Submit to check',
+    keyboard: 'Type text, then Play or Enter to send · Shift+Enter = newline',
   };
   document.getElementById('hint-text').textContent = isMulti
     ? (hints[mode] || 'Type what you heard · Enter or Submit to check')
     : (hints[mode] || hints.char);
 
-  if (isMulti) {
+  if (isKeyboard) {
+    const txt = normalizeKeyboardText(document.getElementById('keyboard-input').value);
+    disp.innerHTML = txt
+      ? buildKeyboardMarkup(txt, -1, -1)
+      : '<span style="color:var(--muted)">⌨</span>';
+  } else if (isMulti) {
     clearMultiInput();
     document.getElementById('btn-submit').disabled = true;
   } else {
@@ -1875,13 +2172,15 @@ function buildSentCatButtons() {
     b.addEventListener('click', () => {
       S.sentCat = i;
       ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
-      document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+      updateSentCatDesc();
+      if (cat.source === 'wikipedia' && WIKI_BUFFER.length < WIKI_TARGET) {
+        ensureWikipediaBuffer();   // start prefetching immediately
+      }
       if (S.mode === 'sent') startRound();
     });
     ctr.appendChild(b);
   });
-  const cat = SENT_CATS[S.sentCat];
-  document.getElementById('sent-cat-desc').textContent = cat.desc + ` (${cat.sents.length} sentences)`;
+  updateSentCatDesc();
 }
 
 function buildRandomPanel() {
@@ -2188,8 +2487,13 @@ function initEvents() {
       document.getElementById(`sub-${m}`).classList.add('active');
       resetPracticeUI(m);
       const fb = document.getElementById('feedback');
-      fb.textContent = '▶ Click Play or press Enter to start';
       fb.className = '';
+      if (m === 'keyboard') {
+        fb.textContent = '⌨ Type text below, then press Play or Enter';
+        document.getElementById('keyboard-input').focus();
+      } else {
+        fb.textContent = '▶ Click Play or press Enter to start';
+      }
     });
   });
 
@@ -2255,6 +2559,25 @@ function initEvents() {
     }
   });
 
+  // Keyboard mode — live preview of typed text, and Enter to send
+  // (Shift+Enter inserts a newline like a normal textarea).
+  const kbInp = document.getElementById('keyboard-input');
+  kbInp.addEventListener('input', () => {
+    if (S.mode !== 'keyboard' || S.isPlaying || S.isPaused) return;
+    const txt = normalizeKeyboardText(kbInp.value);
+    const disp = document.getElementById('main-display');
+    disp.className = 'mode-keyboard';
+    disp.innerHTML = txt
+      ? buildKeyboardMarkup(txt, -1, -1)
+      : '<span style="color:var(--muted)">⌨</span>';
+  });
+  kbInp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!S.isPlaying) startRound();
+    }
+  });
+
   // Global keyboard shortcuts
   document.addEventListener('keydown', e => {
     if (e.target === charInp) {
@@ -2265,6 +2588,7 @@ function initEvents() {
       return;
     }
     if (e.target === multiInp) return;
+    if (e.target === kbInp)    return;
     if (e.target === inText)   return;
     if (e.key === ' ') {
       e.preventDefault();

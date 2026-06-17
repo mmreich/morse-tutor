@@ -4,7 +4,8 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 
 ## Features
 
-- **Six practice modes**: Character, Word, Sentence, Prosign, Custom, and Random copy practice
+- **Six copy-practice modes**: Character, Word, Sentence, Prosign, Custom, and Random
+- **Keyboard mode**: type any text and hear it sent as Morse — a sender/encoder (not a quiz), with the currently-sounding character highlighted as it plays
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
@@ -89,6 +90,15 @@ The **Ham radio** sentence category contains 42 authentic QSO phrases spanning C
 3. Click **Play** — a fresh random sequence is generated and sent; the display shows `Group X / N · Letter Y / M` during playback (or `Letter Y / M` for single-group rounds)
 4. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart from the beginning
 5. Type each group separated by spaces and press **Enter** or **Submit** — correct and incorrect groups are highlighted
+
+### Keyboard mode
+Unlike the other modes, this is a sender rather than a copy quiz — you provide the text and the app plays it.
+
+1. Type any text into the box below the display (it updates a live preview as you type)
+2. Click **Play** or press **Enter** (use **Shift+Enter** for a newline) — the text is sent as Morse using the current speed and tone settings
+3. The display highlights each character in blue as it sounds, and the feedback line shows that character's code (e.g. `R = ·–·`)
+4. Letters, numbers, and common punctuation are supported; unsupported characters are shown struck through and skipped
+5. **↺ Replay** re-sends the last text; **⏸ Pause** / **Space** stop playback (Replay restarts from the beginning). Works with the **Silent** output toggle too, for visual/haptic sending
 
 ## Prosigns
 
