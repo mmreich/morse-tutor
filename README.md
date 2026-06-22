@@ -9,7 +9,7 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
-- **Pause/resume**: word and sentence playback can be paused mid-sequence with the **⏸ Pause** button or **Space** — **▶ Resume** or **↺ Replay** restart from the beginning of the current item
+- **Pause/resume**: word, sentence, random, and keyboard playback can be paused mid-sequence with the **⏸ Pause** button or **Space**; **▶ Resume** continues from the character that was sounding when paused (and returns focus to the input box), while **↺ Replay** restarts the current item from the beginning
 - **Master gain node**: replay and skip immediately silence any in-progress audio with no bleed-over
 - **Adaptive repetition**: missed characters and words are weighted more heavily in selection — weight = `(errors+1)/(total+1)` — so struggling items appear more often without completely crowding out others
 - **Per-character accuracy display**: lesson characters are color-coded after each answer (grey = unseen, green ≥ 80%, yellow ≥ 50%, red < 50%); hover any character to see the exact percentage
@@ -50,14 +50,14 @@ Open `index.html` in any modern browser — no build step or server required.
 ### Word mode
 1. Pick a word category (3-letter, 4–5 letter, 6+ letter, Ham radio, All)
 2. Click **Play** — a random word is sent; the display shows `Letter X / Y` as each character plays
-3. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart
+3. Press **Space** or **⏸ Pause** to pause; **▶ Resume** (or **Space** again) continues from where you paused, while **↺ Replay** restarts from the beginning
 4. Type the word you heard and press **Enter** or **Submit**
 5. Correct and incorrect characters are highlighted letter by letter
 
 ### Sentence mode
 1. Pick a sentence category (Short, Medium, Long, Ham radio, All)
 2. Click **Play** — the display shows `Word X / N · Letter Y / M` during playback
-3. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart
+3. Press **Space** or **⏸ Pause** to pause; **▶ Resume** (or **Space** again) continues from where you paused, while **↺ Replay** restarts from the beginning
 4. Type the sentence you heard and press **Enter** or **Submit**
 5. Correct and incorrect words are highlighted word by word
 
@@ -88,7 +88,7 @@ The **Ham radio** sentence category contains 42 authentic QSO phrases spanning C
    | Mixed  | 2–10   | 1–9             |
 
 3. Click **Play** — a fresh random sequence is generated and sent; the display shows `Group X / N · Letter Y / M` during playback (or `Letter Y / M` for single-group rounds)
-4. Press **Space** or **⏸ Pause** to pause; press again or click **▶ Resume** / **↺ Replay** to restart from the beginning
+4. Press **Space** or **⏸ Pause** to pause; **▶ Resume** (or **Space** again) continues from where you paused, while **↺ Replay** restarts from the beginning
 5. Type each group separated by spaces and press **Enter** or **Submit** — correct and incorrect groups are highlighted
 
 ### Keyboard mode
@@ -98,7 +98,7 @@ Unlike the other modes, this is a sender rather than a copy quiz — you provide
 2. Click **Play** or press **Enter** (use **Shift+Enter** for a newline) — the text is sent as Morse using the current speed and tone settings
 3. The display highlights each character in blue as it sounds, and the feedback line shows that character's code (e.g. `R = ·–·`)
 4. Letters, numbers, and common punctuation are supported; unsupported characters are shown struck through and skipped
-5. **↺ Replay** re-sends the last text; **⏸ Pause** / **Space** stop playback (Replay restarts from the beginning). Works with the **Silent** output toggle too, for visual/haptic sending
+5. **⏸ Pause** / **Space** pause playback and **▶ Resume** continues from the character that was sounding; **↺ Replay** re-sends the last text from the beginning. Works with the **Silent** output toggle too, for visual/haptic sending
 
 ## Prosigns
 

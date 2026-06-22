@@ -48,14 +48,15 @@ There are **seven modes**, but they split into two fundamentally different shape
 | `HAM_REF` | data for the Ham Radio Quick Reference panel |
 
 ### State — `const S` (~line 1077)
-Single mutable object holding all runtime state: settings (`charWPM`, `textWPM`, `freq`, `outputMode`), current `mode`, per-mode selection indices, `currentTarget` (the string being played), playback flags (`isPlaying`, `isPaused`, `waitingInput`), session counters, and `stats` (`key → {correct, total}`).
+Single mutable object holding all runtime state: settings (`charWPM`, `textWPM`, `freq`, `outputMode`), current `mode`, per-mode selection indices, `currentTarget` (the string being played), playback flags (`isPlaying`, `isPaused`, `waitingInput`), resume bookkeeping (`playArgs` = the current `playString` call's `{text, onCharStart, onDone}`; `playPos` = global index of the most recently started character), session counters, and `stats` (`key → {correct, total}`).
 
 ### Audio + timing engine (~line 1107–1345)
 - **`timings()`** — the Farnsworth formula. `tc = 1200/charWPM`, `tw = 60000/textWPM`, `Ts = max(tc, (tw − 31·tc)/19)`. Returns `{dit, dah, elemGap, charGap: 3·Ts, wordGap: 7·Ts}`. Read fresh on every play, so speed changes apply immediately.
 - **Session gain node** (`newSession`/`killSession`): every playback connects its oscillators through a dedicated gain node. Disconnecting it instantly mutes all queued/in-flight tones — this is how Replay/Skip/Pause silence audio with zero bleed-over.
 - **`playCode(code, onDone)`** — plays one character's elements (used by single-symbol modes: char, prosign, custom).
-- **`playString(text, onCharStart, onDone)`** — plays a full space-separated string with Farnsworth char/word gaps. `onCharStart(ch, code, ci, wi, nChars, nWords)` fires ~25 ms before each character. Used by word, sentence, random, **and keyboard** modes.
+- **`playString(text, onCharStart, onDone, startChar = 0)`** — plays a full space-separated string with Farnsworth char/word gaps. `onCharStart(ch, code, ci, wi, nChars, nWords)` fires ~25 ms before each character. Used by word, sentence, random, **and keyboard** modes. It stashes its args in `S.playArgs` and records the live position in `S.playPos` (set inside each character's scheduled callback) so a paused round can be resumed. `startChar` is the global index of the first playable character to sound — earlier characters **and their leading gaps** are skipped, so playback begins immediately at that character (used by Resume).
 - **Silent mode**: both players have a `silent` branch driving the `#lamp` flash + `navigator.vibrate` instead of tones, selected by `S.outputMode`.
+- **Pause / Resume** (`pauseRound`/`resumeRound`, the `playString` modes only): Pause tears down the scheduled playback but leaves `S.playPos` intact. Resume calls `playString(...S.playArgs, S.playPos)` to restart the *same* playback at the character that was sounding when paused (not from the beginning — that's what **Replay** does), then returns focus to the input box (`keyboard-input` in keyboard mode, else `multi-input`). char/prosign/custom modes don't pause.
 
 ### Per-mode round management
 Each mode has a `start<Mode>Round()` (and the quizzes have an `on<Mode>Answer()`). `startRound()` (~line 1934) dispatches on `S.mode`. `replayRound()` re-plays `S.currentTarget` and also branches on mode.
