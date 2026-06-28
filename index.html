@@ -30,7 +30,7 @@
       justify-content: center;
       padding: 16px;
     }
-    #app { width: 100%; max-width: 680px; }
+    #app { width: 100%; max-width: 780px; }
 
     /* ── Header ── */
     header { text-align: center; padding: 12px 0 18px; }
@@ -80,6 +80,7 @@
     /* ── Mode tabs ── */
     .mode-tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
       padding-bottom: 12px;
       margin-bottom: 12px;
@@ -288,6 +289,57 @@
       caret-color: var(--green);
     }
     #keyboard-input:focus { border-color: var(--accent); }
+
+    /* ── Send mode keying area ── */
+    #send-row { display: none; }
+    #send-row.active { display: flex; }
+    #send-pad {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 80px;
+      padding: 14px;
+      background: var(--bg);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      outline: none;
+      transition: border-color 0.05s, background 0.05s, color 0.05s;
+    }
+    #send-pad:focus { border-color: var(--accent); }
+    #send-pad.down {
+      background: rgba(251, 191, 36, 0.10);
+      border-color: var(--yellow);
+      border-style: solid;
+      color: var(--yellow);
+    }
+    #send-elem {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 1.7rem;
+      letter-spacing: 0.12em;
+      min-height: 1.7rem;
+      color: var(--accent);
+    }
+    #main-display.mode-send { font-size: 4.2rem; color: var(--yellow); }
+    #main-display.mode-send-free { font-size: 1.6rem; letter-spacing: 0.08em; word-break: break-word; }
+    /* Re-triggered each new Copy-me prompt so a repeated letter still reads as "new" */
+    @keyframes sendPromptIn {
+      0%   { opacity: 0.15; transform: scale(0.7); }
+      60%  { opacity: 1;    transform: scale(1.06); }
+      100% { opacity: 1;    transform: scale(1); }
+    }
+    #main-display.prompt-in { animation: sendPromptIn 0.28s ease-out; }
+    /* the lamp doubles as the key-down indicator while sending */
+    body.mode-send #lamp { display: block; }
     #btn-submit {
       padding: 10px 16px;
       border-radius: 5px;
@@ -431,6 +483,7 @@
       <button class="mode-tab"        data-mode="custom">Custom</button>
       <button class="mode-tab"        data-mode="random">Random</button>
       <button class="mode-tab"        data-mode="keyboard">Keyboard</button>
+      <button class="mode-tab"        data-mode="send">Send</button>
     </div>
 
     <!-- Character sub-panel -->
@@ -490,6 +543,18 @@
         characters are shown <span style="text-decoration:line-through">struck&nbsp;through</span> and skipped.
       </div>
     </div>
+
+    <!-- Send sub-panel -->
+    <div class="sub-panel" id="sub-send">
+      <div class="card-title">Send &mdash; key Morse yourself with a straight key</div>
+      <div class="cat-btns" id="send-type-btns">
+        <button class="cat-btn active" data-sendtype="copy" title="Key the prompted character; the app grades it">Copy me</button>
+        <button class="cat-btn"        data-sendtype="free" title="Key freely; the app decodes what you send">Free key</button>
+      </div>
+      <div class="card-title" id="send-level-title" style="margin-top:10px">Lesson — what to send</div>
+      <div class="cat-btns" id="send-level-btns"></div>
+      <div class="sub-desc"  id="send-desc"></div>
+    </div>
   </div>
 
   <!-- Practice -->
@@ -530,12 +595,28 @@
                 autocapitalize="characters" spellcheck="false"></textarea>
     </div>
 
-    <div class="controls">
+    <!-- Send mode keying area (straight key) -->
+    <div id="send-row">
+      <button id="send-pad" type="button" title="Hold to key (or hold Space)">
+        <span id="send-pad-label">Hold to key</span>
+        <span id="send-elem"></span>
+      </button>
+    </div>
+
+    <div class="controls" id="main-controls">
       <button class="btn btn-primary"   id="btn-play">&#9654; Play</button>
       <button class="btn btn-secondary" id="btn-replay">&#8635; Replay</button>
       <button class="btn btn-secondary" id="btn-skip">&#9197; Skip</button>
       <button class="btn btn-secondary" id="btn-pause" style="display:none">&#9646;&#9646; Pause</button>
     </div>
+
+    <!-- Send mode controls -->
+    <div class="controls" id="send-controls" style="display:none">
+      <button class="btn btn-primary"   id="btn-send-hear">&#128266; Hear it</button>
+      <button class="btn btn-secondary" id="btn-send-skip">&#9197; Skip</button>
+      <button class="btn btn-secondary" id="btn-send-clear">&#9003; Clear</button>
+    </div>
+
     <div class="hint" id="hint-text">
       Type the character you hear &bull; Space&nbsp;=&nbsp;replay &bull; Enter&nbsp;=&nbsp;start/replay
     </div>
@@ -1079,8 +1160,9 @@ const S = {
   textWPM: 10,
   freq: 600,
   outputMode: 'sound', // 'sound' | 'silent' (visual + vibration)
-  mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random' | 'keyboard'
-  level: 0,           // char lesson index
+  mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random' | 'keyboard' | 'send'
+  sendType: 'copy',   // send sub-mode: 'copy' (graded prompt) | 'free' (live decode)
+  level: 0,           // char lesson index (shared by Character and Send modes)
   wordCat: 0,         // word category index
   sentCat: 0,         // sentence category index
   prosignCat: 0,      // prosign category index
@@ -1951,6 +2033,228 @@ function startKeyboardRound() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Send mode — the user keys Morse with a straight key (keyboard
+// Space, the on-screen pad, or any USB key that emits those events).
+// The keyer captures down/up edges, decodes them into characters,
+// and either grades them against a prompt ('copy') or just shows the
+// live decode ('free').
+// ═══════════════════════════════════════════════════════════
+
+// Reverse lookup: dot/dash code → character (first definition wins).
+const FROM_CODE = {};
+Object.keys(MORSE).forEach(ch => { if (!(MORSE[ch] in FROM_CODE)) FROM_CODE[MORSE[ch]] = ch; });
+
+// Straight-key runtime state (module-level, like the Wikipedia buffer).
+const KEY = {
+  active: false,     // is the keyer listening?
+  down: false,       // is the key currently pressed?
+  downAt: 0,         // performance.now() of the current press
+  upAt: 0,           // performance.now() of the last release
+  marks: '',         // dots/dashes of the character being formed
+  dit: 60,           // adaptive dit-length estimate (ms)
+  charTimer: null,   // fires after a char gap → flush the character
+  wordTimer: null,   // fires after a word gap → emit a word space
+  onChar: null,      // (ch, code) callback when a character is decoded
+  onWord: null,      // () callback when a word gap is detected
+};
+
+// ── Sidetone: a sustained tone that lasts exactly as long as the key is
+//    held (unlike tone(), which schedules a fixed-duration beep). ──
+let ST_OSC = null, ST_GAIN = null;
+function sidetoneStart() {
+  flashOn();
+  if (navigator.vibrate) { try { navigator.vibrate(60000); } catch (e) {} }
+  if (S.outputMode === 'silent') return;     // visual/haptic only
+  const c = audioCtx();
+  ST_GAIN = c.createGain();
+  ST_GAIN.gain.value = 0;
+  ST_GAIN.connect(masterGain());
+  ST_OSC = c.createOscillator();
+  ST_OSC.type = 'sine';
+  ST_OSC.frequency.value = S.freq;
+  ST_OSC.connect(ST_GAIN);
+  ST_OSC.start();
+  ST_GAIN.gain.setTargetAtTime(0.5, c.currentTime, 0.003);
+}
+function sidetoneStop() {
+  flashOff();
+  if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) {} }
+  if (ST_OSC) {
+    const c = audioCtx();
+    const osc = ST_OSC, g = ST_GAIN;
+    ST_OSC = null; ST_GAIN = null;
+    g.gain.setTargetAtTime(0, c.currentTime, 0.003);
+    try { osc.stop(c.currentTime + 0.04); } catch (e) {}
+  }
+}
+
+// Gap thresholds in dit units. A straight-key operator's spacing is loose,
+// so we use midpoints: < CHAR_GAP = same character, < WORD_GAP = new word.
+const DIT_DAH_BREAK = 2;   // down longer than 2 units → dah
+const CHAR_GAP      = 2;   // up longer than 2 units → end of character
+const WORD_GAP      = 5;   // up longer than 5 units → word space
+
+function keyerReset() {
+  clearTimeout(KEY.charTimer); clearTimeout(KEY.wordTimer);
+  KEY.charTimer = KEY.wordTimer = null;
+  KEY.down = false;
+  KEY.marks = '';
+  KEY.dit = 1200 / S.charWPM;   // anchor to the configured character speed
+  updateSendElem();
+}
+
+function keyerStart(onChar, onWord) {
+  keyerReset();
+  KEY.active = true;
+  KEY.onChar = onChar;
+  KEY.onWord = onWord || null;
+}
+
+function keyerStop() {
+  KEY.active = false;
+  if (KEY.down) sidetoneStop();
+  clearTimeout(KEY.charTimer); clearTimeout(KEY.wordTimer);
+  KEY.charTimer = KEY.wordTimer = null;
+  KEY.down = false;
+  KEY.marks = '';
+  setSendPadDown(false);
+}
+
+function keyDown() {
+  if (!KEY.active || KEY.down) return;     // ignore auto-repeat / double edges
+  KEY.down = true;
+  KEY.downAt = performance.now();
+  clearTimeout(KEY.charTimer); clearTimeout(KEY.wordTimer);
+  KEY.charTimer = KEY.wordTimer = null;
+  setSendPadDown(true);
+  sidetoneStart();
+}
+
+function keyUp() {
+  if (!KEY.active || !KEY.down) return;
+  KEY.down = false;
+  KEY.upAt = performance.now();
+  setSendPadDown(false);
+  sidetoneStop();
+
+  const dur  = KEY.upAt - KEY.downAt;
+  const mark = dur < DIT_DAH_BREAK * KEY.dit ? '.' : '-';
+  KEY.marks += mark;
+  // Adapt the dit estimate toward what was just keyed (EMA, clamped 5–50 wpm).
+  const sample = mark === '.' ? dur : dur / 3;
+  KEY.dit = Math.min(240, Math.max(24, 0.7 * KEY.dit + 0.3 * sample));
+  updateSendElem();
+
+  // Schedule character/word flush after the corresponding silence.
+  KEY.charTimer = setTimeout(keyerFlushChar, CHAR_GAP * KEY.dit);
+  KEY.wordTimer = setTimeout(() => { if (KEY.onWord) KEY.onWord(); }, WORD_GAP * KEY.dit);
+}
+
+function keyerFlushChar() {
+  if (!KEY.marks) return;
+  const code = KEY.marks;
+  KEY.marks = '';
+  updateSendElem();
+  const ch = FROM_CODE[code] || null;
+  if (KEY.onChar) KEY.onChar(ch, code);
+}
+
+function updateSendElem() {
+  const el = document.getElementById('send-elem');
+  if (el) el.textContent = KEY.marks ? prettyCode(KEY.marks) : '';
+}
+
+function setSendPadDown(on) {
+  const pad = document.getElementById('send-pad');
+  if (pad) pad.classList.toggle('down', on);
+}
+
+// ── Send round management ──
+let SEND_FREE_TEXT = '';   // accumulated decode in free-key mode
+
+function sendPool() {
+  // 'Copy me' draws single characters from the current lesson, weighted
+  // toward ones the user gets wrong (shared with Character mode).
+  return LESSONS[S.level].chars;
+}
+
+function startSendRound() {
+  cancelPending();
+  keyerStop();
+  resetPracticeUI('send');
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  fb.className = ''; fb.textContent = '';
+
+  if (S.sendType === 'free') {
+    SEND_FREE_TEXT = '';
+    disp.className = 'mode-send mode-send-free';
+    disp.innerHTML = '<span style="color:var(--muted)">…</span>';
+    keyerStart(
+      (ch) => {                       // decoded a character
+        SEND_FREE_TEXT += (ch || '¿');
+        renderSendFree();
+      },
+      () => {                         // word gap
+        if (SEND_FREE_TEXT && !SEND_FREE_TEXT.endsWith(' ')) {
+          SEND_FREE_TEXT += ' ';
+          renderSendFree();
+        }
+      }
+    );
+    document.getElementById('send-pad').focus();
+    return;
+  }
+
+  // 'Copy me': prompt a single character and grade the next one keyed.
+  S.currentTarget = weightedPick(sendPool());
+  disp.className = 'mode-send';
+  disp.textContent = S.currentTarget;
+  void disp.offsetWidth;            // force reflow so the pop animation restarts…
+  disp.classList.add('prompt-in');  // …even when the new letter equals the last one
+  keyerStart((ch, code) => onSendKeyed(ch, code));
+  document.getElementById('send-pad').focus();
+}
+
+function renderSendFree() {
+  const disp = document.getElementById('main-display');
+  disp.className = 'mode-send mode-send-free';
+  disp.textContent = SEND_FREE_TEXT || '…';
+}
+
+function onSendKeyed(ch, code) {
+  KEY.active = false;          // stop listening until the next prompt
+  const disp = document.getElementById('main-display');
+  const fb   = document.getElementById('feedback');
+  const target = S.currentTarget;
+  const good = ch === target;
+  S.total++;
+  recordResult(target, good);
+  if (good) {
+    S.correct++; S.streak++;
+    fb.className = 'ok';
+    fb.textContent = `✓ ${target} = ${prettyCode(MORSE[target])}`;
+  } else {
+    S.streak = 0;
+    fb.className = 'err';
+    const sent = ch ? `${ch} (${prettyCode(code)})` : prettyCode(code);
+    fb.innerHTML = `✗ You sent ${esc(sent)} — ${esc(target)} is ` +
+                   `<span style="color:var(--muted)">${prettyCode(MORSE[target])}</span>`;
+  }
+  syncStats();
+  updateLessonInfo();
+  later(startSendRound, good ? 900 : 1900);
+}
+
+// Play the current target so the user can hear what to send (copy mode).
+function sendHearTarget() {
+  if (S.sendType !== 'copy' || !S.currentTarget) return;
+  const disp = document.getElementById('main-display');
+  disp.className = 'mode-send playing';
+  playCode(MORSE[S.currentTarget], () => { disp.className = 'mode-send'; });
+}
+
+// ═══════════════════════════════════════════════════════════
 // Shared round dispatch
 // ═══════════════════════════════════════════════════════════
 function startRound() {
@@ -1962,6 +2266,7 @@ function startRound() {
   else if (S.mode === 'custom')   startCustomRound();
   else if (S.mode === 'random')   startRandomRound();
   else if (S.mode === 'keyboard') startKeyboardRound();
+  else if (S.mode === 'send')     startSendRound();
   else                            startSentRound();
 }
 
@@ -2052,17 +2357,33 @@ function resetPracticeUI(mode) {
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className   = '';
 
+  const isSend = (mode === 'send');
   const isKeyboard = (mode === 'keyboard');
-  const isMulti = (!isKeyboard && mode !== 'char' && mode !== 'prosign' && mode !== 'custom');
-  document.getElementById('char-input-row').style.display = (isMulti || isKeyboard) ? 'none' : 'flex';
+  const isMulti = (!isKeyboard && !isSend && mode !== 'char' && mode !== 'prosign' && mode !== 'custom');
+  document.getElementById('char-input-row').style.display = (isMulti || isKeyboard || isSend) ? 'none' : 'flex';
   document.getElementById('multi-input-row').classList.toggle('active', isMulti);
   document.getElementById('keyboard-input-row').classList.toggle('active', isKeyboard);
+  document.getElementById('send-row').classList.toggle('active', isSend);
+
+  // Transport controls vs. send controls
+  document.getElementById('main-controls').style.display  = isSend ? 'none' : 'flex';
+  document.getElementById('send-controls').style.display  = isSend ? 'flex' : 'none';
+  if (isSend) {
+    const copy = S.sendType === 'copy';
+    document.getElementById('btn-send-hear').style.display = copy ? '' : 'none';
+    document.getElementById('btn-send-skip').style.display = copy ? '' : 'none';
+    document.getElementById('btn-send-clear').style.display = copy ? 'none' : '';
+  }
+
   const hints = {
     char:     'Type the character you hear · Space = replay · Enter = start/replay',
     prosign:  'Type the prosign (e.g. AR SK BT) · Space = replay · Enter = start/replay',
     custom:   'Type what you hear · 1 key = character, 2 keys = prosign · Space = replay',
     random:   'Type each group separated by spaces · Enter or Submit to check',
     keyboard: 'Type text, then Play or Enter to send · Shift+Enter = newline',
+    send:     S.sendType === 'copy'
+                ? 'Hold Space (or the pad) to key the shown character · short = dit, long = dah'
+                : 'Hold Space (or the pad) to key freely · the app decodes what you send',
   };
   document.getElementById('hint-text').textContent = isMulti
     ? (hints[mode] || 'Type what you heard · Enter or Submit to check')
@@ -2073,6 +2394,8 @@ function resetPracticeUI(mode) {
     disp.innerHTML = txt
       ? buildKeyboardMarkup(txt, -1, -1)
       : '<span style="color:var(--muted)">⌨</span>';
+  } else if (isSend) {
+    // start handler fills in the prompt / live decode
   } else if (isMulti) {
     clearMultiInput();
     document.getElementById('btn-submit').disabled = true;
@@ -2164,6 +2487,54 @@ function buildLevelButtons() {
     ctr.appendChild(b);
   });
   updateLessonInfo();
+}
+
+// Send mode shares the Character lessons (and S.level) for its 'Copy me' prompts.
+function buildSendPanel() {
+  const ctr = document.getElementById('send-level-btns');
+  LESSONS.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.className = 'cat-btn' + (i === S.level ? ' active' : '');
+    b.textContent = L.name;
+    b.title = L.desc;
+    b.addEventListener('click', () => {
+      S.level = i;
+      ctr.querySelectorAll('.cat-btn').forEach((x, j) => x.classList.toggle('active', j === i));
+      updateSendDesc();
+      if (S.mode === 'send') startSendRound();
+    });
+    ctr.appendChild(b);
+  });
+
+  document.querySelectorAll('#send-type-btns .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.sendType = btn.dataset.sendtype;
+      document.querySelectorAll('#send-type-btns .cat-btn')
+        .forEach(b => b.classList.toggle('active', b === btn));
+      refreshSendPanel();
+      if (S.mode === 'send') startSendRound();
+    });
+  });
+  refreshSendPanel();
+}
+
+// Sync the send panel to S.level / S.sendType (the lesson selector only
+// applies to 'Copy me').
+function refreshSendPanel() {
+  document.getElementById('send-level-btns').querySelectorAll('.cat-btn')
+    .forEach((x, j) => x.classList.toggle('active', j === S.level));
+  const showLevels = S.sendType === 'copy';
+  document.getElementById('send-level-title').style.display = showLevels ? '' : 'none';
+  document.getElementById('send-level-btns').style.display  = showLevels ? '' : 'none';
+  updateSendDesc();
+}
+
+function updateSendDesc() {
+  const d = document.getElementById('send-desc');
+  if (!d) return;
+  d.textContent = S.sendType === 'copy'
+    ? `Key the prompted character with a straight key. From ${LESSONS[S.level].name}: ${LESSONS[S.level].chars.join(' ')}`
+    : 'Key anything you like; the app decodes it live. Unrecognized patterns show as ¿.';
 }
 
 function buildWordCatButtons() {
@@ -2498,20 +2869,26 @@ function initEvents() {
     tab.addEventListener('click', () => {
       const m = tab.dataset.mode;
       if (S.mode === m) return;
+      const wasSend = (S.mode === 'send');
       S.mode = m;
       cancelPending();
+      if (wasSend) keyerStop();
       S.waitingInput = false;
       S.currentTarget = null;
       S.pendingAnswer = null;
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
       document.getElementById(`sub-${m}`).classList.add('active');
+      document.body.classList.toggle('mode-send', m === 'send');
       resetPracticeUI(m);
       const fb = document.getElementById('feedback');
       fb.className = '';
       if (m === 'keyboard') {
         fb.textContent = '⌨ Type text below, then press Play or Enter';
         document.getElementById('keyboard-input').focus();
+      } else if (m === 'send') {
+        refreshSendPanel();
+        startSendRound();            // show the first prompt / live-decode area immediately
       } else {
         fb.textContent = '▶ Click Play or press Enter to start';
       }
@@ -2531,6 +2908,42 @@ function initEvents() {
     S.stats = {};
     syncStats();
     updateLessonInfo();
+  });
+
+  // ── Send mode: keying pad, control buttons, and key capture ──
+  document.getElementById('btn-send-hear').addEventListener('click', sendHearTarget);
+  document.getElementById('btn-send-skip').addEventListener('click', () => { if (S.mode === 'send') startSendRound(); });
+  document.getElementById('btn-send-clear').addEventListener('click', () => {
+    SEND_FREE_TEXT = '';
+    KEY.marks = '';
+    clearTimeout(KEY.charTimer); clearTimeout(KEY.wordTimer);
+    updateSendElem();
+    renderSendFree();
+    document.getElementById('send-pad').focus();
+  });
+
+  // On-screen pad — pointer events cover both mouse and touch.
+  const pad = document.getElementById('send-pad');
+  pad.addEventListener('pointerdown', e => { e.preventDefault(); pad.focus(); keyDown(); });
+  pad.addEventListener('pointerup',   e => { e.preventDefault(); keyUp(); });
+  pad.addEventListener('pointerleave', () => { if (KEY.down) keyUp(); });
+  pad.addEventListener('pointercancel', () => { if (KEY.down) keyUp(); });
+  // Suppress the button's native Space/Enter "click" so they don't double-fire.
+  pad.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); });
+
+  // Physical key (Space, or any USB key emitting Space) drives the straight key
+  // while in Send mode. Captured here so it overrides the global Space shortcut.
+  document.addEventListener('keydown', e => {
+    if (S.mode === 'send' && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      if (!e.repeat) keyDown();
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (S.mode === 'send' && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      keyUp();
+    }
   });
 
   // Submit button (word/sent/random modes)
@@ -2601,6 +3014,8 @@ function initEvents() {
 
   // Global keyboard shortcuts
   document.addEventListener('keydown', e => {
+    // In Send mode the keyer owns Space (handled above); don't also replay/pause.
+    if (S.mode === 'send' && (e.code === 'Space' || e.key === ' ')) return;
     if (e.target === charInp) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -2648,6 +3063,7 @@ function init() {
   buildCustomPanel();
   buildProsignPanel();
   buildRandomPanel();
+  buildSendPanel();
   buildRefGrid();
   initEvents();
   syncStats();
