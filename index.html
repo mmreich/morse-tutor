@@ -470,6 +470,13 @@
           <span class="val"><span id="v-freq">600</span> Hz</span>
         </div>
       </div>
+      <div class="setting-group">
+        <label>Band Noise <span style="color:var(--accent)">(QRN/QSB)</span></label>
+        <div class="slider-row">
+          <input type="range" id="sl-noise" min="0" max="10" value="0" step="1">
+          <span class="val"><span id="v-noise">Off</span></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1159,6 +1166,7 @@ const S = {
   charWPM: 20,
   textWPM: 10,
   freq: 600,
+  noiseLevel: 0,  // 0 = clean signal; 1-10 scales QRN (static) and QSB (fading)
   outputMode: 'sound', // 'sound' | 'silent' (visual + vibration)
   mode: 'char',       // 'char' | 'word' | 'sent' | 'prosign' | 'custom' | 'random' | 'keyboard' | 'send'
   sendType: 'copy',   // send sub-mode: 'copy' (graded prompt) | 'free' (live decode)
@@ -1182,6 +1190,8 @@ const S = {
   audioCtx: null,
   masterGain: null,
   sessionGain: null,    // per-playback gain node — disconnect to abort all queued tones
+  noiseBuffer: null,    // cached white-noise buffer, generated once and looped
+  noiseSource: null,    // active background-static source for the current session, if any
   suppressInput: false,
   pendingAnswer: null,
   stats: {},            // key → { correct, total }
@@ -1237,6 +1247,68 @@ function killSession() {
     try { S.sessionGain.disconnect(); } catch (e) {}
     S.sessionGain = null;
   }
+  if (S.noiseSource) {
+    try { S.noiseSource.stop(); } catch (e) {}
+    S.noiseSource = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Band noise (QRN) + fading (QSB) — simulates copying a signal over the
+// air rather than a clean, unwavering local tone. Both are driven by the
+// same 0–10 "Band Noise" slider (S.noiseLevel).
+// ═══════════════════════════════════════════════════════════
+function noiseBuffer() {
+  const c = audioCtx();
+  if (!S.noiseBuffer) {
+    const len = c.sampleRate * 2; // 2s of white noise, looped
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    S.noiseBuffer = buf;
+  }
+  return S.noiseBuffer;
+}
+
+// Continuous static bed for [t0, t0+dur], band-limited around the current
+// tone pitch so it reads as receiver hiss rather than raw white noise.
+// Gated to the session: killSession() stops it immediately if playback
+// is cancelled early.
+function startNoise(t0, dur) {
+  const c   = audioCtx();
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer();
+  src.loop   = true;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = S.freq;
+  bp.Q.value = 1.1;
+  const g = c.createGain();
+  g.gain.value = S.noiseLevel * 0.012;
+  src.connect(bp);
+  bp.connect(g);
+  g.connect(masterGain());
+  src.start(t0);
+  src.stop(t0 + dur + 0.2);
+  src.onended = () => { try { bp.disconnect(); g.disconnect(); } catch (e) {} };
+  S.noiseSource = src;
+}
+
+// Slow random-walk amplitude wobble on the session's gain — QSB fading,
+// as opposed to a clean tone that snaps on/off at full strength.
+function scheduleFading(g, t0, dur) {
+  const depth  = Math.min(0.85, S.noiseLevel / 10 * 0.85);
+  const stepMs = 180;
+  let val = 1;
+  let t = t0;
+  g.gain.setValueAtTime(1, t0);
+  while (t < t0 + dur) {
+    val += (Math.random() * 2 - 1) * depth * 0.5;
+    val = Math.max(1 - depth, Math.min(1, val));
+    t = Math.min(t + stepMs / 1000, t0 + dur);
+    g.gain.linearRampToValueAtTime(val, t);
+  }
+  g.gain.linearRampToValueAtTime(1, t0 + dur + 0.05);
 }
 
 function tone(freq, t0, dur) {
@@ -1315,12 +1387,13 @@ function playCode(code, onDone) {
   cancelPending();
   S.isPlaying = true;
   syncButtons();
-  newSession();
+  const sessGain = newSession();
 
   const T  = timings();
   const c  = audioCtx();
   const silent = S.outputMode === 'silent';
-  let at   = c.currentTime + 0.06;
+  const t0 = c.currentTime + 0.06;
+  let at   = t0;
   let wt   = 60;
   const vibe = [];  // navigator.vibrate pattern: [on, off, on, off, ...]
 
@@ -1341,6 +1414,11 @@ function playCode(code, onDone) {
       if (silent) vibe.push(T.elemGap);
     }
   });
+
+  if (!silent && S.noiseLevel > 0) {
+    scheduleFading(sessGain, t0, at - t0);
+    startNoise(t0, at - t0);
+  }
 
   if (silent && navigator.vibrate && vibe.length) {
     later(() => { try { navigator.vibrate(vibe); } catch (e) {} }, 60);
@@ -1370,7 +1448,7 @@ function playString(text, onCharStart, onDone, startChar = 0) {
   S.playArgs = { text, onCharStart, onDone };
   S.playPos  = startChar;
   syncButtons();
-  newSession();
+  const sessGain = newSession();
 
   const T      = timings();
   const c      = audioCtx();
@@ -1378,7 +1456,8 @@ function playString(text, onCharStart, onDone, startChar = 0) {
   const words  = text.split(' ');
   const nWords = words.length;
 
-  let at = c.currentTime + 0.06;
+  const t0 = c.currentTime + 0.06;
+  let at = t0;
   let wt = 60;
   let ord = -1;       // running index of playable characters across the whole string
   let begun = false;  // have we reached startChar and started scheduling?
@@ -1434,6 +1513,11 @@ function playString(text, onCharStart, onDone, startChar = 0) {
       if (silent) vibe.push(T.wordGap);
     }
   });
+
+  if (!silent && S.noiseLevel > 0) {
+    scheduleFading(sessGain, t0, at - t0);
+    startNoise(t0, at - t0);
+  }
 
   if (silent && navigator.vibrate && vibe.length) {
     later(() => { try { navigator.vibrate(vibe); } catch (e) {} }, 60);
@@ -2050,7 +2134,8 @@ const KEY = {
   down: false,       // is the key currently pressed?
   downAt: 0,         // performance.now() of the current press
   upAt: 0,           // performance.now() of the last release
-  marks: '',         // dots/dashes of the character being formed
+  marks: '',         // provisional dots/dashes shown live as the character forms
+  elems: [],         // press durations (ms) of the character being formed
   dit: 60,           // adaptive dit-length estimate (ms)
   charTimer: null,   // fires after a char gap → flush the character
   wordTimer: null,   // fires after a word gap → emit a word space
@@ -2088,19 +2173,37 @@ function sidetoneStop() {
   }
 }
 
-// Gap thresholds in dit units. A straight-key operator's spacing is loose,
-// so we use midpoints: < CHAR_GAP = same character, < WORD_GAP = new word.
-const DIT_DAH_BREAK = 2;   // down longer than 2 units → dah
-const CHAR_GAP      = 2;   // up longer than 2 units → end of character
-const WORD_GAP      = 5;   // up longer than 5 units → word space
+// Decoding constants. Rather than classify each element the instant it ends,
+// we collect a whole character's press durations and classify them together
+// at flush time — far more forgiving of loose human keying. The gap windows
+// that end a character/word have a generous floor so multi-element letters
+// (whose inter-element pauses are easily longer than one "ideal" dit) don't
+// get split apart mid-letter.
+const DAH_RATIO      = 2;     // a press ≥ 2× the dit estimate is a dah
+const CHAR_GAP_UNITS = 3;     // silence ≥ this × dit ends the character…
+const WORD_GAP_UNITS = 7;     // …and this × dit ends a word
+const CHAR_GAP_FLOOR = 350;   // ms — minimum patience between elements of a letter
+const WORD_GAP_FLOOR = 800;   // ms — minimum silence before a word space
+const DIT_MIN = 40, DIT_MAX = 260;   // dit-estimate clamp (≈ 6–30 wpm)
 
+function charGapMs() { return Math.max(CHAR_GAP_UNITS * KEY.dit, CHAR_GAP_FLOOR); }
+function wordGapMs() { return Math.max(WORD_GAP_UNITS * KEY.dit, WORD_GAP_FLOOR); }
+
+// Per-character reset — clears the in-progress character but PRESERVES the
+// learned dit estimate, so it keeps tracking the user's speed across prompts.
 function keyerReset() {
   clearTimeout(KEY.charTimer); clearTimeout(KEY.wordTimer);
   KEY.charTimer = KEY.wordTimer = null;
   KEY.down = false;
   KEY.marks = '';
-  KEY.dit = 1200 / S.charWPM;   // anchor to the configured character speed
+  KEY.elems = [];   // press durations (ms) of the character being formed
   updateSendElem();
+}
+
+// Re-seed the dit estimate from the configured speed — called when entering
+// Send mode or when the speed changes, then refined by the user's own keying.
+function keyerAnchorSpeed() {
+  KEY.dit = Math.min(DIT_MAX, Math.max(DIT_MIN, 1200 / S.charWPM));
 }
 
 function keyerStart(onChar, onWord) {
@@ -2117,6 +2220,7 @@ function keyerStop() {
   KEY.charTimer = KEY.wordTimer = null;
   KEY.down = false;
   KEY.marks = '';
+  KEY.elems = [];
   setSendPadDown(false);
 }
 
@@ -2137,22 +2241,44 @@ function keyUp() {
   setSendPadDown(false);
   sidetoneStop();
 
-  const dur  = KEY.upAt - KEY.downAt;
-  const mark = dur < DIT_DAH_BREAK * KEY.dit ? '.' : '-';
-  KEY.marks += mark;
-  // Adapt the dit estimate toward what was just keyed (EMA, clamped 5–50 wpm).
-  const sample = mark === '.' ? dur : dur / 3;
-  KEY.dit = Math.min(240, Math.max(24, 0.7 * KEY.dit + 0.3 * sample));
+  KEY.elems.push(KEY.upAt - KEY.downAt);
+  // Provisional live readout only — the graded decode is computed at flush.
+  KEY.marks += (KEY.upAt - KEY.downAt) < DAH_RATIO * KEY.dit ? '.' : '-';
   updateSendElem();
 
-  // Schedule character/word flush after the corresponding silence.
-  KEY.charTimer = setTimeout(keyerFlushChar, CHAR_GAP * KEY.dit);
-  KEY.wordTimer = setTimeout(() => { if (KEY.onWord) KEY.onWord(); }, WORD_GAP * KEY.dit);
+  KEY.charTimer = setTimeout(keyerFlushChar, charGapMs());
+  KEY.wordTimer = setTimeout(() => { if (KEY.onWord) KEY.onWord(); }, wordGapMs());
+}
+
+// Classify a whole character's element durations into dots/dashes, and nudge
+// the carried dit estimate toward what was actually keyed.
+function classifyChar(elems) {
+  const mn = Math.min(...elems), mx = Math.max(...elems);
+  let code, ditRef;
+  if (elems.length >= 2 && mx >= 1.8 * mn) {
+    // Mixed dits and dahs in one character: split at the geometric midpoint of
+    // the two clusters — self-calibrating, independent of absolute speed.
+    const thr  = Math.sqrt(mn * mx);
+    code = elems.map(d => d < thr ? '.' : '-').join('');
+    const dits = elems.filter(d => d < thr);
+    ditRef = dits.length ? dits.reduce((a, b) => a + b, 0) / dits.length : mn;
+  } else {
+    // Uniform (all one type) or a single element — there's no internal contrast,
+    // so compare the press length to the carried dit estimate (learned from the
+    // user's earlier mixed characters and persisted across prompts).
+    const mean = elems.reduce((a, b) => a + b, 0) / elems.length;
+    const isDit = mean < DAH_RATIO * KEY.dit;
+    code = elems.map(() => isDit ? '.' : '-').join('');
+    ditRef = isDit ? mean : mean / 3;
+  }
+  KEY.dit = Math.min(DIT_MAX, Math.max(DIT_MIN, 0.6 * KEY.dit + 0.4 * ditRef));
+  return code;
 }
 
 function keyerFlushChar() {
-  if (!KEY.marks) return;
-  const code = KEY.marks;
+  if (!KEY.elems.length) return;
+  const code = classifyChar(KEY.elems);
+  KEY.elems = [];
   KEY.marks = '';
   updateSendElem();
   const ch = FROM_CODE[code] || null;
@@ -2818,6 +2944,7 @@ function initEvents() {
       S.textWPM = S.charWPM;
       inText.value = S.textWPM;
     }
+    if (S.mode === 'send') keyerAnchorSpeed();   // re-seed the keyer to the new speed
   });
   // Number input: live-update state when a valid in-range value is typed,
   // but only write back / clamp when the user commits (blur, Enter, or
@@ -2845,6 +2972,11 @@ function initEvents() {
   slFreq.addEventListener('input', () => {
     S.freq = +slFreq.value;
     document.getElementById('v-freq').textContent = S.freq;
+  });
+  const slNoise = document.getElementById('sl-noise');
+  slNoise.addEventListener('input', () => {
+    S.noiseLevel = +slNoise.value;
+    document.getElementById('v-noise').textContent = S.noiseLevel === 0 ? 'Off' : S.noiseLevel;
   });
 
   // Output mode (Sound / Silent) — switching cancels any in-progress
@@ -2887,6 +3019,7 @@ function initEvents() {
         fb.textContent = '⌨ Type text below, then press Play or Enter';
         document.getElementById('keyboard-input').focus();
       } else if (m === 'send') {
+        keyerAnchorSpeed();          // seed dit estimate from the current speed
         refreshSendPanel();
         startSendRound();            // show the first prompt / live-decode area immediately
       } else {

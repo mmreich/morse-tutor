@@ -6,6 +6,8 @@ A single-page Morse code copy-practice application using the **Farnsworth method
 
 - **Six copy-practice modes**: Character, Word, Sentence, Prosign, Custom, and Random
 - **Keyboard mode**: type any text and hear it sent as Morse — a sender/encoder (not a quiz), with the currently-sounding character highlighted as it plays
+- **Send mode**: key Morse yourself with a straight key (mouse/touch hold on the on-screen pad, or hold **Space**) — **Copy me** prompts a character from the current lesson and grades what you key back; **Free key** decodes whatever you send with no prompt. The keyer adapts its dit/dah threshold to your own keying speed as you go
+- **Band Noise (QRN/QSB)**: an optional 0–10 slider layers filtered static and slow random-walk fading under the tone, simulating a real over-the-air signal instead of a clean local tone; off by default
 - **Farnsworth timing**: character speed and overall text speed are independently configurable, stretching inter-character and inter-word gaps while keeping element timing fast
 - **Lessons ordered by element count**: progress from simple 1-element characters (E, T) through 6-element punctuation
 - **Full character set**: 26 letters, 10 digits, and 14 punctuation marks
@@ -99,6 +101,14 @@ Unlike the other modes, this is a sender rather than a copy quiz — you provide
 3. The display highlights each character in blue as it sounds, and the feedback line shows that character's code (e.g. `R = ·–·`)
 4. Letters, numbers, and common punctuation are supported; unsupported characters are shown struck through and skipped
 5. **⏸ Pause** / **Space** pause playback and **▶ Resume** continues from the character that was sounding; **↺ Replay** re-sends the last text from the beginning. Works with the **Silent** output toggle too, for visual/haptic sending
+
+### Send mode
+Unlike the other modes, here you're the one keying — the app listens and grades or decodes.
+
+1. Choose **Copy me** (a character from the current lesson is prompted; key it back and it's graded) or **Free key** (no prompt — key anything and the app decodes it live)
+2. In **Copy me**, pick a lesson level the same way as Character mode
+3. Hold the **Hold to key** pad (mouse or touch) or hold **Space** to send a dit/dah; release to let it complete — the keyer times your presses against the current Character Speed and adapts its dit/dah threshold to your actual keying as you go
+4. **🔊 Hear it** plays back the correct code for the current prompt; **⏭ Skip** moves to the next prompt; **⌫ Clear** resets the character in progress
 
 ## Prosigns
 
