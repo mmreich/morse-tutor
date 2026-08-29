@@ -74,7 +74,7 @@ The **Ham radio** sentence category contains 42 authentic QSO phrases spanning C
 ### Prosign mode
 1. Choose **Basic** (AR SK BT KN AS) or **All** (9 prosigns)
 2. Click **Play** — the prosign is sent as a single merged sequence with no inter-character gap
-3. Type the 2-letter abbreviation (e.g. `AR`, `SK`) — the answer submits automatically on the second keystroke
+3. Type the 2-letter abbreviation (e.g. `AR`, `SK`) — the answer submits automatically on the second non-bracket keystroke; typing the `<`/`>` brackets shown on screen (e.g. `<AR>`) works too, they're just ignored
 4. Feedback shows the prosign name, its description, and its code on a wrong answer
 
 ### Random mode

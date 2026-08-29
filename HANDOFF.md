@@ -97,6 +97,7 @@ Mode tabs, output toggle, transport buttons, the three inputs, and global keyboa
 - **CSS specificity:** `.kb-cur`/`.kb-skip` win over the inherited `#main-display.mode-keyboard` color because they match the child span directly. Adding `.playing` to the parent during keyboard playback would wash out the highlight — hence it's deliberately omitted.
 - **Wikipedia mode** fetches random article intros (`WIKI_API_URL`), extracts sentences whose every character is in `MORSE`, and buffers them. Single-flight guarded by `WIKI_FETCH_PROMISE`; degrades gracefully offline.
 - **Favicon** is an inline SVG data URI in `<head>` (an `SOS` pattern) — keeps the project a single file.
+- **`#char-input` strips `<`/`>` before counting keystrokes.** Prosigns are displayed everywhere as `<AS>`, so users naturally type the brackets too. The `input` listener (~line 3090) strips them from the value before checking it against `required` and before building the submitted answer, and mirrors the stripped value back into the field so no stray bracket is left sitting there. `maxlength` on the input is `4` (not `2`) so a fully bracketed prosign isn't truncated before the strip happens.
 - **Noise/fading duration is read, not precomputed.** `playCode`/`playString` increment `at` (an `AudioContext` timestamp) synchronously through their `forEach` scheduling loops; by the time the loop finishes, `at` holds the exact end time, so `scheduleFading`/`startNoise` are called *after* the loop with `at - t0` as the duration rather than summing timings up front separately.
 
 ---

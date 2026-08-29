@@ -579,7 +579,7 @@
 
     <!-- Character mode input (single key, auto-submit) -->
     <div id="char-input-row">
-      <input id="char-input" type="text" maxlength="2"
+      <input id="char-input" type="text" maxlength="4"
              placeholder="type what you hear"
              autocomplete="off" autocorrect="off"
              autocapitalize="characters" spellcheck="false">
@@ -3090,7 +3090,12 @@ function initEvents() {
   const charInp = document.getElementById('char-input');
   charInp.addEventListener('input', e => {
     if (S.suppressInput) return;
-    const v = e.target.value;
+    // Prosigns are conventionally written <AS>; tolerate the brackets
+    // being typed by simply ignoring them rather than counting toward
+    // the answer length or getting stuck in the field.
+    const raw = e.target.value;
+    const v = raw.replace(/[<>]/g, '');
+    if (raw !== v) e.target.value = v;
     // Custom mode: require 2 keys when the current target is a prosign, else 1
     const required = (S.mode === 'prosign' ||
                       (S.mode === 'custom' && S.currentTarget &&
